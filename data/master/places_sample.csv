@@ -1,0 +1,22 @@
+place_id,name,lat,lon,area,cuisine,halal,vegetarian,setting,price_min,price_max,rating,n_reviews,description
+P001,Bugis Kimchi House,1.3000,103.8558,bugis,korean,0,0,restaurant,12,25,4.3,812,Cosy Korean spot near Bugis Junction known for kimchi jjigae and army stew sets.
+P002,Hanok BBQ Bugis,1.2989,103.8549,bugis,korean,0,0,restaurant,25,45,4.5,1340,Charcoal Korean BBQ with free-flow banchan; good for groups and celebrations.
+P003,Daebak Halal Korean,1.3010,103.8570,bugis,korean,1,0,restaurant,14,28,4.2,655,Muslim-owned Korean kitchen serving halal fried chicken and tteokbokki.
+P004,Rochor Jjigae Corner,1.3120,103.8510,bugis,korean,0,0,hawker,6,9,4.6,230,Hawker stall doing cheap and hearty Korean stews and bibimbap.
+P005,Kampong Glam Nasi Padang,1.3020,103.8590,bugis,malay,1,0,hawker,5,9,4.4,980,Long-running nasi padang stall with rendang and sambal goreng near Sultan Mosque.
+P006,Albert Centre Zi Char,1.3025,103.8530,bugis,chinese,0,0,hawker,6,15,4.1,300,Wok-hei zi char at Albert Centre; try the hor fun and cereal prawns.
+P007,Bugis Ramen Ya,1.2995,103.8560,bugis,japanese,0,0,restaurant,15,22,4.2,760,Tonkotsu ramen shop with rich broth and late opening hours.
+P008,Sunny Veggie Bowl,1.2980,103.8540,bugis,western,0,1,cafe,8,14,4.0,210,Bright cafe serving vegetarian grain bowls and smoothies.
+P009,Orchard Gyukatsu,1.3046,103.8320,orchard,japanese,0,0,restaurant,20,35,4.4,1500,Beef katsu you sear yourself on a hot stone; queue at peak hours.
+P010,Lucky Plaza Thai Kitchen,1.3045,103.8340,orchard,thai,0,0,restaurant,10,18,4.1,540,Casual Thai eatery with tom yum and basil pork rice.
+P011,Orchard Sky Grill,1.3020,103.8350,orchard,western,0,0,restaurant,30,60,4.3,890,Rooftop steakhouse with city views; good for dates.
+P012,Tampines Round Market Mee Rebus,1.3530,103.9440,tampines,malay,1,0,hawker,4,6,4.5,670,Popular halal stall with thick mee rebus gravy and satay.
+P013,Tampines Hub Prata House,1.3540,103.9400,tampines,indian,1,0,hawker,3,8,4.3,1100,Crispy prata and teh tarik; open till late.
+P014,Tampines Mall Seoul Bites,1.3525,103.9450,tampines,korean,0,0,foodcourt,8,12,3.9,330,Food court Korean stall with budget rice sets.
+P015,Tampines Green Leaf Cafe,1.3510,103.9460,tampines,western,0,1,cafe,12,20,4.2,280,Vegetarian cafe with pasta and brunch plates.
+P016,JEM Ramen Corner,1.3333,103.7430,jurong east,japanese,0,0,restaurant,13,20,4.0,410,Mall ramen with shoyu and spicy miso options.
+P017,Yuhua Hawker Chicken Rice,1.3360,103.7400,jurong east,chinese,0,0,hawker,4,6,4.4,520,Silky Hainanese chicken rice at a neighbourhood hawker centre.
+P018,Westgate Halal Western Grill,1.3343,103.7425,jurong east,western,1,0,restaurant,12,24,4.1,380,Halal-certified grill with chicken chop and fish and chips.
+P019,Chinatown Complex Claypot Rice,1.2825,103.8430,chinatown,chinese,0,0,hawker,5,10,4.6,2100,Claypot rice cooked over charcoal; expect a wait.
+P020,Temple Street Veggie Delights,1.2835,103.8445,chinatown,chinese,0,1,restaurant,8,15,4.2,340,Chinese vegetarian restaurant with mock meat dishes.
+P021,Smith Street Biryani,1.2830,103.8440,chinatown,indian,1,0,hawker,6,10,4.3,600,Fragrant dum biryani stall with mutton and chicken options.

@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+.env
+
+# runtime
+logs/
+.gradio/
+flagged/
+
+# data: raw is never committed; keep folder structure via .gitkeep
+data/raw/*
+!data/raw/.gitkeep
+# large / binary data anywhere under data/
+data/**/*.parquet
+data/**/*.arrow
+data/**/*.zip
+data/**/*.gz
+data/**/*.duckdb
+data/**/*.db
+data/**/*.pkl
+data/**/*.npy
+data/master/places.csv
+
+# model weights / training outputs
+models/
+checkpoints/
+outputs/
+wandb/
+*.safetensors
+*.bin
+*.pt
+*.ckpt

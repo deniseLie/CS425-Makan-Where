@@ -1,0 +1,10 @@
+[project]
+name = "makan-where"
+version = "0.1.0"
+description = "Singlish-aware conversational restaurant recommender for Singapore"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = ["slow: loads a real model (deselect with -m 'not slow')"]

@@ -1,0 +1,16 @@
+# stub pipeline + UI + tests
+gradio>=5,<7
+pandas>=2.0
+pytest>=8.0
+
+# for training/real components (uncomment when you need them)
+# torch
+# transformers
+# peft
+# bitsandbytes
+# trl
+# accelerate
+# datasets
+# sentence-transformers
+# duckdb
+# sacrebleu
