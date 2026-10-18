@@ -1,0 +1,8 @@
+# extra packages to run the trained models from the Hugging Face Hub (MAKAN_*=hf)
+-r requirements.txt
+torch
+transformers>=4.44
+peft>=0.12
+accelerate
+sentencepiece   # Flan-T5 tokenizer
+huggingface_hub

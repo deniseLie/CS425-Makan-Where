@@ -10,9 +10,9 @@ from typing import Optional
 
 import pandas as pd
 
+from src.config import PLACES_CSV
 from src.schemas import ANY, UNKNOWN, DialogueState, RankedPlace
 
-PLACES_CSV = Path(__file__).resolve().parents[2] / "data" / "master" / "places_sample.csv"
 
 # Reference point for the radius filter when we don't know where the user is.
 AREA_CENTROIDS = {

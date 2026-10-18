@@ -4,11 +4,14 @@ A Singlish-aware conversational restaurant recommender for Singapore.
 Users chat the way they normally would ("korean lah, bugis side", "too far leh") and the
 system asks follow-up questions or recommends places, answering in the same style.
 
-University NLP project, 4 people. This repo is currently a **working stub pipeline**:
-every component sits behind a fixed function signature, so each of us can swap in the real
-model without touching anyone else's code.
+University NLP project, 4 people. This repo is currently a **working stub pipeline**
+with a FastAPI backend and a React chat frontend: every model component sits behind a fixed
+function signature, and an environment variable switches it from the stub to the trained model
+on the Hugging Face Hub. Full project plan: [docs/plan.md](docs/plan.md).
 
 ## Pipeline (one user turn)
+
+Paths are under `backend/`.
 
 ```
 raw text
@@ -26,8 +29,8 @@ raw text
   → reply
 ```
 
-`src/pipeline.py` wires this together in `MakanSession.step(raw_text) -> (reply, debug)` and logs
-every turn as one JSON line in `logs/<session_id>.jsonl`.
+`backend/src/pipeline.py` wires this together in `MakanSession.step(raw_text) -> (reply, debug)` and logs
+every turn as one JSON line in `backend/logs/<session_id>.jsonl`.
 
 ### Slots
 
@@ -39,34 +42,61 @@ every turn as one JSON line in `logs/<session_id>.jsonl`.
 
 Each slot is `"UNKNOWN"` (not mentioned), `"ANY"` (no preference) or a value string
 (`"korean"`, `"bugis"`, `"halal"`, `"<=8"`, ...). All shared types live in
-[`src/schemas.py`](src/schemas.py) - that file is the contract.
+[`backend/src/schemas.py`](backend/src/schemas.py) - that file is the contract.
 
 ## Setup & run
+
+Needs Python 3.10+ and Node 18+ (tested with 3.12 and 22).
 
 ```bash
 python -m venv .venv
 # Windows:  .venv\Scripts\activate      macOS/Linux:  source .venv/bin/activate
-pip install -r requirements.txt
-
-pytest                 # run tests
-python app.py          # Gradio chat UI at http://127.0.0.1:7860
-python -m src.pipeline # plain terminal chat
+pip install -r backend/requirements.txt
+cd frontend && npm install && cd ..
 ```
 
-The heavy dependencies for training / the real models are listed (commented out) at the bottom
-of `requirements.txt`.
+Development (two terminals):
+
+```bash
+cd backend && uvicorn src.api:app --reload --port 8000    # API on :8000
+cd frontend && npm run dev                                # UI on http://localhost:5173 (proxies /api)
+```
+
+Other commands, from `backend/`:
+
+```bash
+pytest                 # run tests
+python -m src.pipeline # plain terminal chat, no UI
+```
+
+One-process mode (what a deployment runs): `cd frontend && npm run build`, then start uvicorn as
+above and open http://127.0.0.1:8000 - the backend serves `frontend/dist` itself.
+
+### API
+
+| method | path | body / result |
+|---|---|---|
+| GET | `/api/health` | which implementation (stub / hf) and model each component runs |
+| POST | `/api/sessions` | → `{session_id}` |
+| POST | `/api/sessions/{id}/messages` | `{message}` → `{reply, debug}` (`debug` = state, action, tracker output) |
+| POST | `/api/sessions/{id}/reset` | clears the dialogue |
+
+Sessions are kept in memory, so a backend restart starts everyone afresh (the UI recovers by
+creating a new session).
 
 ## Interfaces and owners
 
 | module | function(s) | owner | stub behaviour now |
 |---|---|---|---|
-| `src/normalizer` | `normalize(text: str) -> str` | Varidhi | returns text unchanged |
-| `src/style` | `detect_style(text: str) -> str` | Varidhi | particle/keyword heuristic |
-| `src/tracker` | `track(history: list[Turn], prev: DialogueState) -> TrackerOutput` | Nichole | alias dict + regex, carries over prev slots |
-| `src/policy` | `decide(state, n_asked, recommender, query_norm="", user_latlon=None) -> PolicyAction`<br>`apply_tracker_output(prev, out) -> DialogueState` | Nichole | real rules (see `rules.py`) |
-| `src/recommender` | `candidates(state, user_latlon=None) -> list[dict]`<br>`rank(state, query_norm, user_latlon, k=3) -> list[RankedPlace]`<br>`load_places()`, `place_names()` | Yuhanna | pandas filter on `data/master/places_sample.csv`, score = rating |
-| `src/generator` | `generate(action: PolicyAction, style: str, user_text: str) -> str`<br>`template_reply(action, style)` | Denise | template replies in both styles |
-| `src/pipeline.py` | `MakanSession.step(raw_text) -> (reply, debug)` | Denise | - |
+| `backend/src/normalizer` | `normalize(text: str) -> str` | Varidhi | returns text unchanged |
+| `backend/src/style` | `detect_style(text: str) -> str` | Varidhi | particle/keyword heuristic |
+| `backend/src/tracker` | `track(history: list[Turn], prev: DialogueState) -> TrackerOutput` | Nichole | alias dict + regex, carries over prev slots |
+| `backend/src/policy` | `decide(state, n_asked, recommender, query_norm="", user_latlon=None) -> PolicyAction`<br>`apply_tracker_output(prev, out) -> DialogueState` | Nichole | real rules (see `rules.py`) |
+| `backend/src/recommender` | `candidates(state, user_latlon=None) -> list[dict]`<br>`rank(state, query_norm, user_latlon, k=3) -> list[RankedPlace]`<br>`load_places()`, `place_names()` | Yuhanna | pandas filter on `data/master/places_sample.csv`, score = rating |
+| `backend/src/generator` | `generate(action: PolicyAction, style: str, user_text: str) -> str`<br>`template_reply(action, style)` | Denise | template replies in both styles |
+| `backend/src/pipeline.py` | `MakanSession.step(raw_text) -> (reply, debug)` | Denise | - |
+
+| `backend/src/api.py` | HTTP API for the frontend | Denise | - |
 
 Policy rules: required slot missing and `n_asked < 3` → ask it with the top-3 values among
 candidates; else if >10 candidates and `n_asked < 3` → ask the unknown soft slot with the highest
@@ -77,42 +107,80 @@ Critiques: `reject` → add to `excluded_place_ids`; `too_far` → `radius_km *=
 `too_expensive` → `budget_max *= 0.7` (or 15 if no budget yet). The radius is measured from the
 user's location if known, otherwise from the centre of the chosen area.
 
-## How to replace a stub
+## Plugging in a trained model (Hugging Face Hub)
 
-1. **Keep the signature.** Inputs and outputs are the types in `src/schemas.py`. If you think the
+Each model module has `stub.py` and `hf.py`. `hf.py` already loads the model from the Hub; you
+only choose it with environment variables (see [`backend/src/config.py`](backend/src/config.py)):
+
+| component | switch | model repo variable | expected model |
+|---|---|---|---|
+| normalizer | `MAKAN_NORMALIZER=hf` | `MAKAN_NORMALIZER_MODEL` | Flan-T5 seq2seq; inputs prefixed with `normalizer.hf.PREFIX` |
+| style | `MAKAN_STYLE=hf` | `MAKAN_STYLE_MODEL` | text classifier with `id2label = {0: "english", 1: "singlish"}` |
+| tracker | `MAKAN_TRACKER=hf` | `MAKAN_LORA_ADAPTER` | LoRA adapter (+ tokenizer) for `MAKAN_BASE_LLM` |
+| generator | `MAKAN_GENERATOR=hf` | `MAKAN_LORA_ADAPTER` | same adapter, `[REPLY]` task |
+
+`MAKAN_BASE_LLM` defaults to `Qwen/Qwen2.5-1.5B-Instruct`. Private repos need `HF_TOKEN`.
+Install the model packages with `pip install -r backend/requirements-ml.txt`. Example:
+
+```bash
+# PowerShell: $env:MAKAN_NORMALIZER="hf"; $env:MAKAN_NORMALIZER_MODEL="our-team/makan-normalizer"
+export MAKAN_NORMALIZER=hf MAKAN_NORMALIZER_MODEL=our-team/makan-normalizer
+cd backend && uvicorn src.api:app --port 8000
+```
+
+The UI header shows `stub` / `hf` for each component so you can see what is running.
+
+**Training and serving must use the same prompt format.** Build training files with the
+functions in `hf.py`: `tracker.hf.build_prompt` / `build_target` for `[TRACK]`,
+`generator.hf.build_prompt` for `[REPLY]`, `normalizer.hf.PREFIX` for Flan-T5. If you change a
+format, change it there so serving follows.
+
+Uploading after training (from a notebook):
+
+```python
+model.push_to_hub("our-team/makan-normalizer", private=True)
+tokenizer.push_to_hub("our-team/makan-normalizer", private=True)
+# Qwen: push only the LoRA adapter + tokenizer
+peft_model.push_to_hub("our-team/makan-qwen-lora", private=True)
+```
+
+Rules when changing a module:
+
+1. **Keep the signature.** Inputs and outputs are the types in `backend/src/schemas.py`. If the
    contract needs to change, raise it with the team first - training data, gold labels and logs
    all use it.
-2. Put your implementation in a new file in your module, e.g. `src/tracker/qwen_lora.py`, and
-   change the one import line in that module's `__init__.py`:
-   ```python
-   from .qwen_lora import track   # was: from .stub import track
-   ```
-   Keep `stub.py` around - it's handy for fast tests and as a fallback.
-3. Load models lazily (on first call, cached) so `import src.pipeline` stays fast and the tests
-   that don't need your model don't load it.
-4. **Add tests** in `tests/test_<module>.py`. The existing tests must still pass - they describe
-   behaviour the rest of the pipeline relies on (e.g. "never return a non-halal place when
-   dietary=halal"). Mark slow model tests with `@pytest.mark.slow`.
-5. Run `pytest` and try a few turns in `python app.py` before pushing.
+2. Keep `stub.py` working - the tests and anyone without a GPU use it.
+3. Load models lazily (on first call, cached) so `import src.pipeline` stays fast.
+4. **Add tests** in `backend/tests/`. Existing tests must still pass - they describe behaviour the
+   rest of the pipeline relies on (e.g. "never return a non-halal place when dietary=halal").
+   Mark tests that load a real model with `@pytest.mark.slow`.
+5. Run `pytest` and try a few turns in the UI before committing.
 
 ## Repo layout
 
 ```
 makan-where/
+├── backend/
+│   ├── src/
+│   │   ├── schemas.py         shared data contract
+│   │   ├── config.py          env vars: stub/hf switches, model repo ids, data paths
+│   │   ├── api.py             FastAPI app (Denise)
+│   │   ├── pipeline.py        one turn end to end (Denise)
+│   │   ├── llm.py             shared Qwen + LoRA loader for tracker/generator
+│   │   ├── normalizer/  style/    stub.py + hf.py (Varidhi)
+│   │   ├── tracker/     policy/   (Nichole)
+│   │   ├── recommender/           (Yuhanna)
+│   │   └── generator/             (Denise)
+│   ├── tests/
+│   ├── requirements.txt       API + stubs + tests
+│   └── requirements-ml.txt    + torch/transformers/peft for MAKAN_*=hf
+├── frontend/                  React + Vite chat UI with a pipeline-state panel
+├── training/                  notebooks / scripts that train and push models to the HF Hub
 ├── data/{raw,master,train}/   raw + large files gitignored; master/places_sample.csv is fake demo data
-├── src/
-│   ├── schemas.py             shared data contract
-│   ├── normalizer/  style/    Varidhi
-│   ├── tracker/     policy/   Nichole
-│   ├── recommender/           Yuhanna
-│   ├── generator/             Denise
-│   └── pipeline.py            Denise
 ├── eval/gold/                 hand-labelled test dialogues (format in eval/gold/README.md)
-├── notebooks/
-├── tests/
-├── app.py                     Gradio chat UI
-└── requirements.txt
+└── docs/plan.md               project plan
 ```
 
 `data/master/places_sample.csv` contains 21 made-up places (realistic names/locations, not real
-data) so the stub pipeline runs end to end.
+data) so the stub pipeline runs end to end. Point `MAKAN_PLACES_CSV` at the real `places.csv`
+when it is ready.

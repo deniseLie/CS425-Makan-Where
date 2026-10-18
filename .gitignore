@@ -35,3 +35,7 @@ wandb/
 *.bin
 *.pt
 *.ckpt
+
+# frontend
+frontend/node_modules/
+frontend/dist/
