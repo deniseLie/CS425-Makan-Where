@@ -1,52 +1,148 @@
+#!/usr/bin/env python3
 """
-Convert MultiWOZ 2.2 restaurant dialogues into Makan Where? [TRACK] JSONL examples.
+Convert MultiWOZ 2.2 restaurant dialogues into Makan Where? [TRACK] data.
 
-Labelled from MultiWOZ's belief state:
-  cuisine  <- restaurant-food
-  area     <- restaurant-area
-  budget   <- restaurant-pricerange
-  time     <- restaurant-bookday + restaurant-booktime  ("Tuesday 12:00")
-Not labelled by MultiWOZ (left UNKNOWN): dietary, setting.
+Outputs:
+    data/dialogues_train.jsonl
+    data/dialogues_dev.jsonl
+    data/dialogues_test.jsonl
 
-Extra handling:
-  * State is a snapshot taken AT the user turn (MultiWOZ 2.2 stores the
-    cumulative belief state on USER turns; SYSTEM turns carry no state).
-  * A rule layer catches explicit "open to any cuisine" statements that the
-    source annotation misses -> ANY.
-  * Two repair passes fix one-turn annotation lag when the user accepts a
-    system suggestion:
-      (a) slot-value repair: a short affirmation followed by the value
-          appearing in the next turn's belief state.
-      (b) named-restaurant repair: a short affirmation following a system
-          offer of a named place, where we can recover the cuisine from the
-          restaurant's own name via a small alias map (optional; only fires
-          when RESTAURANT_CUISINE_HINTS is populated).
-  * History is trimmed to start where the restaurant task starts.
-  * User turns whose only active intent is a non-restaurant booking are
-    skipped (e.g. "book the hotel for 2 nights").
-  * Output is split by dialogue_id (train/dev/test), never by row.
+Each JSONL row represents one eligible USER turn:
+    input  : [TRACK] + relevant conversation history
+    output : JSON with exactly six slots
+
+Slots:
+    cuisine, area, budget, dietary, setting, time
+
+Labels:
+    UNKNOWN = not specified
+    ANY     = explicit lack of preference
+    value   = normalized preference
+
+Official split directories are preserved. If a dialogue cannot be assigned
+to an official split, processing stops instead of creating a new split.
 """
 
+import argparse
 import hashlib
 import json
+import random
 import re
 from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-MULTIWOZ_DIR = Path("./MultiWOZ_2.2")
-OUTPUT_DIR = Path("./tracker_data")
 
-SLOT_NAMES = ("cuisine", "area", "budget", "dietary", "setting", "time")
+SLOTS = ("cuisine", "area", "budget", "dietary", "setting", "time")
+SPLITS = ("train", "dev", "test")
 UNKNOWN = "UNKNOWN"
 ANY = "ANY"
-SPLITS = ("train", "dev", "test")
+
 RESTAURANT_SERVICES = {"restaurant", "restaurant_service"}
-NON_RESTAURANT_BOOKING_INTENTS = {"book", "booking"}  # used to skip hotel/taxi bookings
+NON_RESTAURANT_BOOKING_INTENTS = {"book", "booking"}
 
-PRICE_MAP = {"cheap": "cheap", "moderate": "moderate", "expensive": "expensive"}
+# ---------------------------------------------------------------------
+# Singapore localization
+# Replace these pools with the application's canonical database values.
+# ---------------------------------------------------------------------
 
-# Internal slots; "book_day" + "book_time" are merged into the output "time".
+AREA_POOL = {
+    "central": [
+        "Downtown Core", "Bukit Merah", "Bishan", "Toa Payoh",
+        "Geylang", "Kallang", "Bukit Timah", "Tanglin", "Outram",
+        "River Valley", "Queenstown", "Novena", "Marine Parade",
+    ],
+    "east": ["Tampines", "Bedok", "Pasir Ris"],
+    "west": [
+        "Clementi", "Bukit Batok", "Jurong West", "Jurong East",
+        "Choa Chu Kang", "Bukit Panjang",
+    ],
+    "north": ["Sembawang", "Yishun", "Woodlands"],
+    "north-east": [
+        "Hougang", "Ang Mo Kio", "Serangoon", "Sengkang", "Punggol",
+    ],
+}
+
+REGION = {
+    "centre": "central",
+    "center": "central",
+    "south": "central",
+    "north": "north",
+    "east": "east",
+    "west": "west",
+}
+
+# Confirm these ranges match the application's SQL filters.
+BUDGET_MAP = {
+    "cheap": "below $10",
+    "moderate": "$10-20",
+    "expensive": "above $20",
+}
+
+# MultiWOZ cuisine -> (canonical output label, utterance replacement).
+# Unsupported non-ANY cuisines cause the dialogue to be dropped.
+CUISINE_MAP = {
+    "chinese": ("Chinese", None),
+    "cantonese": ("Chinese", "chinese"),
+    "indian": ("Indian", None),
+    "korean": ("Korean", None),
+    "japanese": ("Japanese", None),
+    "thai": ("Thai", None),
+    "vietnamese": ("Vietnamese", None),
+    "italian": ("Italian", None),
+    "french": ("French", None),
+    "mexican": ("Mexican", None),
+    "malaysian": ("Malay", "malay"),
+}
+
+# Optional aliases for recovering a cuisine from a named restaurant.
+# Populate only with verified aliases from the restaurant database.
+RESTAURANT_CUISINE_HINTS = {}
+
+DIRECTION = r"(?:centre|center|north|south|east|west)"
+DIR_RE = re.compile(
+    rf"\b(?:the\s+)?(?:(?:city|town)\s+)?({DIRECTION})"
+    rf"(?:\s+(?:part\s+of\s+town|part|side|area|of\s+town))?\b"
+    rf"(?!\s+(?:american|indian|african|asian|korean|european))",
+    re.IGNORECASE,
+)
+
+DONTCARE_VALUES = {
+    "dontcare", "don't care", "do not care", "doesn't matter",
+    "doesnt matter", "any", "no preference",
+    "no preference either way",
+}
+
+UNKNOWN_VALUES = {
+    "", "not given", "not mentioned", "unknown", "none", "null",
+}
+
+CUISINE_ANY_RE = re.compile(
+    r"\b("
+    r"open to (all|any)( (sorts?|types?|kinds?))?( of)?"
+    r"( food| cuisines?)?"
+    r"|(all|any) (sorts?|types?|kinds?) of (food|cuisines?)"
+    r"|(don'?t|do not) (really )?(care|mind) (what|which)"
+    r"( (sort|type|kind))?( of)? ?(food|cuisines?)?"
+    r"|no (cuisine|food) preference"
+    r"|(food|cuisine) (doesn'?t|does not) matter"
+    r"|(food|cuisine) (is|would be) (fine|ok|okay|good)"
+    r"|(any|whatever) (food|cuisine) (is|would be) (fine|ok|okay|good)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+AFFIRM_RE = re.compile(
+    r"\b("
+    r"sounds (great|good|perfect|fine)"
+    r"|that (works|is perfect|would be (great|good|perfect))"
+    r"|perfect|yes|yeah|let'?s do (it|that)"
+    r"|book (it|that)|i'?ll take (it|that)"
+    r")\b",
+    re.IGNORECASE,
+)
+AFFIRM_MAX_WORDS = 12
+
 INTERNAL_KEY_MAP = {
     "food": "cuisine",
     "restaurant-food": "cuisine",
@@ -58,107 +154,134 @@ INTERNAL_KEY_MAP = {
     "restaurant-price range": "budget",
     "restaurant-bookday": "book_day",
     "restaurant-book day": "book_day",
+    "bookday": "book_day",
+    "book day": "book_day",
     "restaurant-booktime": "book_time",
     "restaurant-book time": "book_time",
+    "booktime": "book_time",
+    "book time": "book_time",
 }
 
-DONTCARE_VALUES = {
-    "dontcare", "don't care", "do not care", "doesn't matter", "doesnt matter",
-    "any", "no preference", "no preference either way",
-}
-UNKNOWN_VALUES = {"", "not given", "not mentioned", "unknown", "none", "null"}
+
+# ---------------------------------------------------------------------
+# Value normalization
+# ---------------------------------------------------------------------
+
+def normalize_key(key: Any) -> str:
+    return str(key).strip().lower().replace("_", "-")
 
 
-# --- Rule layer: explicit no-preference statements the annotation may miss ---
-CUISINE_ANY_RE = re.compile(
-    r"\b("
-    r"open to (all|any)( (sorts?|types?|kinds?))?( of)?( food| cuisines?)?"
-    r"|(all|any) (sorts?|types?|kinds?) of (food|cuisines?)"
-    r"|(don'?t|do not) (really )?(care|mind) (what|which)( (sort|type|kind))?( of)? ?(food|cuisines?)?"
-    r"|no (cuisine|food) preference"
-    r"|(food|cuisine) (doesn'?t|does not) matter"
-    r"|(food|cuisine) (is|would be) (fine|ok|okay|good)"
-    r"|(any|whatever) (food|cuisine) (is|would be) (fine|ok|okay|good)"
-    r")\b",
-    re.IGNORECASE,
-)
-
-# --- Lag repair: short acceptance of a system suggestion ---
-AFFIRM_RE = re.compile(
-    r"\b(sounds (great|good|perfect|fine)|that (works|is perfect|would be (great|good|perfect))"
-    r"|perfect|yes|yeah|let'?s do (it|that)|book (it|that)|i'?ll take (it|that))\b",
-    re.IGNORECASE,
-)
-AFFIRM_MAX_WORDS = 12
-
-
-# ----------------------------------------------------------------- values ---
 def clean_value(value: Any) -> str:
     if value is None:
         return UNKNOWN
+
     if isinstance(value, list):
         if not value:
             return UNKNOWN
         value = value[0]
+
     text = str(value).strip()
     lowered = " ".join(text.lower().replace("_", " ").split())
+
     if lowered in UNKNOWN_VALUES:
         return UNKNOWN
     if lowered in DONTCARE_VALUES:
         return ANY
+
     return lowered
 
 
-def normalize_key(raw_key: Any) -> str:
-    return str(raw_key).strip().lower().replace("_", "-")
+def parse_restaurant_slot_values(
+    slot_values: Dict[str, Any],
+) -> Dict[str, str]:
+    result = {}
 
-
-def parse_restaurant_slot_values(slot_values: Dict[str, Any]) -> Dict[str, str]:
-    out: Dict[str, str] = {}
     for raw_key, raw_value in slot_values.items():
         slot = INTERNAL_KEY_MAP.get(normalize_key(raw_key))
         if slot is None:
             continue
+
         value = clean_value(raw_value)
         if value == UNKNOWN:
             continue
+
         if value != ANY:
             if slot in ("cuisine", "area", "book_day"):
                 value = value.title()
             elif slot == "budget":
-                value = PRICE_MAP.get(value, value)
-        out[slot] = value
-    return out
+                value = BUDGET_MAP.get(value.lower(), value)
+
+        result[slot] = value
+
+    return result
 
 
 def combine_time(day: str, clock: str) -> str:
-    parts = [p for p in (day, clock) if p not in (UNKNOWN, ANY)]
-    if parts:
-        return " ".join(parts)  # e.g. "Tuesday 12:00"
+    known = [v for v in (day, clock) if v not in (UNKNOWN, ANY)]
+
+    if known:
+        return " ".join(known)
     if ANY in (day, clock):
         return ANY
     return UNKNOWN
 
 
-def snapshot(belief: Dict[str, str], overrides: Dict[str, str]) -> Dict[str, str]:
-    slots = {slot: UNKNOWN for slot in SLOT_NAMES}
-    for slot in ("cuisine", "area", "budget"):
-        value = belief.get(slot, UNKNOWN)
-        slots[slot] = value if value != UNKNOWN else overrides.get(slot, UNKNOWN)
+def snapshot(
+    belief: Dict[str, str],
+    overrides: Dict[str, str],
+) -> Dict[str, str]:
+    slots = {name: UNKNOWN for name in SLOTS}
+
+    for name in ("cuisine", "area", "budget"):
+        value = belief.get(name, UNKNOWN)
+        slots[name] = (
+            value if value != UNKNOWN
+            else overrides.get(name, UNKNOWN)
+        )
+
     slots["time"] = combine_time(
-        belief.get("book_day", UNKNOWN), belief.get("book_time", UNKNOWN)
+        belief.get("book_day", UNKNOWN),
+        belief.get("book_time", UNKNOWN),
     )
+
+    # MultiWOZ does not directly annotate these two application slots.
+    slots["dietary"] = UNKNOWN
+    slots["setting"] = UNKNOWN
+
     return slots
 
 
-# ----------------------------------------------------------------- frames ---
-def frame_info(turn: Dict[str, Any]) -> Tuple[Optional[Dict[str, str]], bool, bool, bool]:
-    """
-    Returns (restaurant_state, restaurant_active, other_active, other_booking_active).
-    restaurant_state is None when the turn has no restaurant state at all.
-    other_booking_active is True when a non-restaurant frame has a booking intent.
-    """
-    restaurant_state: Optional[Dict[str, str]] = None
+# ---------------------------------------------------------------------
+# Turn and frame helpers
+# ---------------------------------------------------------------------
+
+def get_speaker(turn: Dict[str, Any]) -> str:
+    speaker = turn.get("speaker", "")
+
+    if isinstance(speaker, int):
+        return "user" if speaker == 0 else "assistant"
+
+    speaker = str(speaker).strip().lower()
+
+    if speaker in {"user", "human", "0"}:
+        return "user"
+    if speaker in {"system", "assistant", "bot", "1"}:
+        return "assistant"
+
+    return "unknown"
+
+
+def get_utterance(turn: Dict[str, Any]) -> str:
+    value = turn.get("utterance", turn.get("text", ""))
+    return str(value).strip() if value is not None else ""
+
+
+def frame_info(
+    turn: Dict[str, Any],
+) -> Tuple[Optional[Dict[str, str]], bool, bool, bool]:
+    """Return restaurant state and active-intent flags."""
+
+    restaurant_state = None
     restaurant_active = False
     other_active = False
     other_booking_active = False
@@ -170,15 +293,17 @@ def frame_info(turn: Dict[str, Any]) -> Tuple[Optional[Dict[str, str]], bool, bo
     for frame in frames:
         if not isinstance(frame, dict):
             continue
+
         service = str(frame.get("service", "")).strip().lower()
-        state = frame.get("state")
+        state = frame.get("state", {})
         if not isinstance(state, dict):
-            continue
+            state = {}
+
         intent = str(state.get("active_intent", "NONE")).strip().lower()
         intent_on = intent not in ("none", "")
 
         if service in RESTAURANT_SERVICES:
-            slot_values = state.get("slot_values")
+            slot_values = state.get("slot_values", {})
             if isinstance(slot_values, dict):
                 restaurant_state = parse_restaurant_slot_values(slot_values)
             restaurant_active = restaurant_active or intent_on
@@ -187,7 +312,12 @@ def frame_info(turn: Dict[str, Any]) -> Tuple[Optional[Dict[str, str]], bool, bo
             if intent in NON_RESTAURANT_BOOKING_INTENTS:
                 other_booking_active = True
 
-    return restaurant_state, restaurant_active, other_active and not restaurant_active, other_booking_active
+    return (
+        restaurant_state,
+        restaurant_active,
+        other_active,
+        other_booking_active,
+    )
 
 
 def restaurant_started(turn: Dict[str, Any]) -> bool:
@@ -195,141 +325,284 @@ def restaurant_started(turn: Dict[str, Any]) -> bool:
     return active or bool(state)
 
 
-# ------------------------------------------------------------ turn helpers ---
-def get_speaker(turn: Dict[str, Any]) -> str:
-    speaker = turn.get("speaker", "")
-    if isinstance(speaker, int):
-        return "user" if speaker == 0 else "assistant"
-    normalized = str(speaker).strip().lower()
-    if normalized in {"user", "human", "0"}:
-        return "user"
-    if normalized in {"system", "assistant", "bot", "1"}:
-        return "assistant"
-    return "unknown"
+# ---------------------------------------------------------------------
+# Dialogue-wide Singapore area mapping and text rewriting
+# ---------------------------------------------------------------------
+
+def source_area(value: str) -> str:
+    value = value.strip().lower()
+    return "centre" if value == "center" else value
 
 
-def get_utterance(turn: Dict[str, Any]) -> str:
-    value = turn.get("utterance", turn.get("text", ""))
-    return str(value).strip() if value is not None else ""
+def choose_area(region: str, used: set, rng: random.Random) -> str:
+    pool = AREA_POOL[REGION[region]]
+    available = [area for area in pool if area not in used]
+    chosen = rng.choice(available or pool)
+    used.add(chosen)
+    return chosen
 
 
-# ------------------------------------------------------ dialogue -> records ---
-def repair_acceptance_lag(records: List[Dict[str, Any]]) -> int:
-    """
-    Two passes over consecutive (user, user) records:
-      (a) slot-value repair: previous user turn was a short affirmation, the
-          current slot is UNKNOWN, the next turn gains a value, and that value
-          appeared in the system offer -> copy it back one turn.
-      (b) named-restaurant repair: previous user turn was a short affirmation
-          and the system offer named a restaurant we can map to a cuisine ->
-          set cuisine one turn earlier.
-    """
-    repaired = 0
-    for i in range(len(records) - 1):
-        cur, nxt = records[i], records[i + 1]
-        user_text = cur["_user"]
-        if len(user_text.split()) > AFFIRM_MAX_WORDS or not AFFIRM_RE.search(user_text):
+def plan_dialogue(
+    dialogue: Dict[str, Any],
+    rng: random.Random,
+) -> Optional[Dict[str, str]]:
+    """Map source regions consistently within a dialogue."""
+
+    area_map = {}
+    used = set()
+
+    for turn in dialogue.get("turns", []):
+        if get_speaker(turn) != "user":
             continue
-        offer = cur["_prev_system"].lower()
 
-        # (a) slot-value repair from next turn's belief state
+        state, _, _, _ = frame_info(turn)
+        if not state:
+            continue
+
+        area = state.get("area", UNKNOWN)
+        if area not in (UNKNOWN, ANY):
+            region = source_area(area)
+            if region in REGION and region not in area_map:
+                area_map[region] = choose_area(region, used, rng)
+
+        cuisine = state.get("cuisine", UNKNOWN)
+        if cuisine not in (UNKNOWN, ANY):
+            if cuisine.lower() not in CUISINE_MAP:
+                return None
+
+    # Also localize explicit regions mentioned in the dialogue text.
+    for turn in dialogue.get("turns", []):
+        for match in DIR_RE.finditer(get_utterance(turn)):
+            region = source_area(match.group(1))
+            if region in REGION and region not in area_map:
+                area_map[region] = choose_area(region, used, rng)
+
+    return area_map
+
+
+def rewrite(
+    text: str,
+    area_map: Dict[str, str],
+    cuisine_words: Dict[str, str],
+) -> str:
+    def replace_direction(match):
+        region = source_area(match.group(1))
+        return area_map.get(region, match.group(0))
+
+    text = DIR_RE.sub(replace_direction, text)
+
+    for old, new in cuisine_words.items():
+        text = re.sub(rf"\b{re.escape(old)}\b", new, text, flags=re.I)
+
+    return text
+
+
+def localized_slots(
+    belief: Dict[str, str],
+    area_map: Dict[str, str],
+) -> Dict[str, str]:
+    slots = snapshot(belief, {})
+
+    cuisine = slots["cuisine"]
+    if cuisine not in (UNKNOWN, ANY):
+        mapped = CUISINE_MAP.get(cuisine.lower())
+        slots["cuisine"] = mapped[0] if mapped else cuisine
+
+    area = slots["area"]
+    if area not in (UNKNOWN, ANY):
+        region = source_area(area)
+        slots["area"] = area_map.get(region, area)
+
+    return slots
+
+
+# ---------------------------------------------------------------------
+# Annotation repair
+# ---------------------------------------------------------------------
+
+def repair_acceptance_lag(records: List[Dict[str, Any]]) -> int:
+    repaired = 0
+
+    for index in range(len(records) - 1):
+        current = records[index]
+        following = records[index + 1]
+
+        user_text = current["_user"]
+        if len(user_text.split()) > AFFIRM_MAX_WORDS:
+            continue
+        if not AFFIRM_RE.search(user_text):
+            continue
+
+        offer = current["_prev_system"].lower()
+
+        # Repair a missing value only when the next label contains it
+        # and that value was mentioned in the preceding system offer.
         for slot in ("cuisine", "area", "budget"):
-            now, later = cur["slots"][slot], nxt["slots"][slot]
-            if now == UNKNOWN and later not in (UNKNOWN, ANY) and later.lower() in offer:
-                cur["slots"][slot] = later
-                cur["repaired"] = True
+            now = current["slots"][slot]
+            later = following["slots"][slot]
+
+            if (
+                now == UNKNOWN
+                and later not in (UNKNOWN, ANY)
+                and later.lower() in offer
+            ):
+                current["slots"][slot] = later
                 repaired += 1
+
+        # Optional, conservative cuisine recovery from a named restaurant.
+        if current["slots"]["cuisine"] == UNKNOWN:
+            for name, cuisine in RESTAURANT_CUISINE_HINTS.items():
+                if name.lower() in offer:
+                    current["slots"]["cuisine"] = cuisine
+                    repaired += 1
+                    break
 
     return repaired
 
 
-def build_dialogue_records(dialogue: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], int]:
-    turns = [t for t in dialogue.get("turns", []) if isinstance(t, dict)]
+def build_dialogue_records(
+    dialogue: Dict[str, Any],
+    area_map: Dict[str, str],
+) -> Tuple[List[Dict[str, Any]], int]:
+    turns = [
+        turn for turn in dialogue.get("turns", [])
+        if isinstance(turn, dict)
+    ]
+
     dialogue_id = str(dialogue.get("dialogue_id", "unknown"))
-    # Strip a trailing ".json" if a filename leaked in.
     if dialogue_id.lower().endswith(".json"):
         dialogue_id = dialogue_id[:-5]
 
-    start = next((i for i, t in enumerate(turns) if restaurant_started(t)), None)
+    start = next(
+        (i for i, turn in enumerate(turns) if restaurant_started(turn)),
+        None,
+    )
     if start is None:
         return [], 0
 
-    belief: Dict[str, str] = {}
-    overrides: Dict[str, str] = {}
-    history: List[Dict[str, str]] = []
-    records: List[Dict[str, Any]] = []
+    cuisine_words = {
+        old: mapping[1]
+        for old, mapping in CUISINE_MAP.items()
+        if mapping[1]
+    }
+
+    history = []
+    belief = {}
+    overrides = {}
+    records = []
     last_system = ""
 
     for index, turn in enumerate(turns[start:], start=start):
-        text = get_utterance(turn)
-        if not text:
+        original_text = get_utterance(turn)
+        if not original_text:
             continue
+
+        text = rewrite(original_text, area_map, cuisine_words)
         speaker = get_speaker(turn)
 
-        if speaker == "user":
-            history.append({"role": "user", "content": text})
-            state, _, other_active, other_booking_active = frame_info(turn)
-            if state is not None:
-                belief = state
+        if speaker != "user":
+            if speaker == "assistant":
+                history.append({"role": "assistant", "content": text})
+                last_system = text
+            continue
 
-            if CUISINE_ANY_RE.search(text):
-                overrides["cuisine"] = ANY
+        history.append({"role": "user", "content": text})
 
-            # Skip turns where the user is on another domain entirely,
-            # including cross-domain booking turns (hotel/taxi).
-            if other_active or other_booking_active:
-                continue
+        state, _, other_active, other_booking_active = frame_info(turn)
+        if state is not None:
+            belief = state
 
-            records.append({
-                "task": "TRACK",
-                "dialogue_id": dialogue_id,
-                "turn_id": turn.get("turn_id", index),
-                "history": [dict(m) for m in history],
-                "slots": snapshot(belief, overrides),
-                "_user": text,
-                "_prev_system": last_system,
-            })
-        else:
-            history.append({"role": "assistant", "content": text})
-            last_system = text
+        if CUISINE_ANY_RE.search(original_text):
+            overrides["cuisine"] = ANY
+
+        # Exclude user turns whose active intent is another domain.
+        if other_active or other_booking_active:
+            continue
+
+        slots = localized_slots(belief, area_map)
+
+        # Explicit no-preference statements override missing annotations.
+        if overrides.get("cuisine") == ANY and slots["cuisine"] == UNKNOWN:
+            slots["cuisine"] = ANY
+
+        records.append({
+            "task": "[TRACK]",
+            "source": "multiwoz",
+            "dialogue_id": dialogue_id,
+            "turn_id": turn.get("turn_id", index),
+            "history": [dict(message) for message in history],
+            "slots": slots,
+            "_user": original_text,
+            "_prev_system": last_system,
+        })
 
     return records, repair_acceptance_lag(records)
 
 
 def finalize(record: Dict[str, Any]) -> Dict[str, Any]:
+    record = dict(record)
     record.pop("_user", None)
     record.pop("_prev_system", None)
-    record.pop("repaired", None)
+
+    history = record.pop("history")
+    slots = record.pop("slots")
+
     record["input"] = (
         "[TRACK]\n"
         "Extract the current restaurant preferences from the conversation. "
         "Return valid JSON with exactly these keys: "
         "cuisine, area, budget, dietary, setting, time. "
         "Use UNKNOWN when unmentioned and ANY only for an explicit "
-        "no-preference statement. Time is the requested restaurant booking "
-        'time, formatted like "Tuesday 12:00" when both day and time are known, '
-        "otherwise as the single known part (e.g. \"Tuesday\").\n"
-        + "\n".join(f'{m["role"].upper()}: {m["content"]}' for m in record["history"])
+        "no-preference statement. Format known booking times as "
+        '"Tuesday 12:00" when both day and time are available.\n'
+        + "\n".join(
+            f'{message["role"].upper()}: {message["content"]}'
+            for message in history
+        )
     )
-    record["target"] = json.dumps(record["slots"], ensure_ascii=False)
+    record["output"] = json.dumps(slots, ensure_ascii=False)
+
     return record
 
 
-# ------------------------------------------------------------------ splits ---
-def assign_split(file_path: Path, dialogue_id: str) -> str:
-    parts = {p.lower() for p in file_path.parts}
-    for split in SPLITS:
-        if split in parts:
-            return split
-    bucket = int(hashlib.md5(str(dialogue_id).encode()).hexdigest(), 16) % 100
-    return "train" if bucket < 80 else "dev" if bucket < 90 else "test"
+# ---------------------------------------------------------------------
+# Official splits and JSONL output
+# ---------------------------------------------------------------------
+
+def assign_split(file_path: Path, root: Path) -> str:
+    """Require an official split directory; never re-split dialogues."""
+
+    try:
+        relative_parts = file_path.relative_to(root).parts
+    except ValueError:
+        relative_parts = file_path.parts
+
+    matches = {
+        part.lower()
+        for part in relative_parts
+        if part.lower() in SPLITS
+    }
+
+    if len(matches) != 1:
+        raise ValueError(
+            f"Cannot determine a unique official split for {file_path}. "
+            f"Expected a train/dev/test directory beneath {root}."
+        )
+
+    return matches.pop()
 
 
-# ---------------------------------------------------------------------- IO ---
-def iter_dialogues(base_path: Path) -> Iterable[Tuple[Path, Dict[str, Any]]]:
-    if not base_path.exists():
-        raise FileNotFoundError(f"MultiWOZ directory not found: {base_path.resolve()}")
-    for file_path in sorted(base_path.rglob("*.json")):
+def iter_dialogues(root: Path) -> Iterable[Tuple[Path, Dict[str, Any]]]:
+    if not root.exists():
+        raise FileNotFoundError(f"MultiWOZ directory not found: {root.resolve()}")
+
+    for file_path in sorted(root.rglob("*.json")):
+        # Ignore metadata files that are not part of an official split.
+        try:
+            assign_split(file_path, root)
+        except ValueError:
+            continue
+
         try:
             with file_path.open("r", encoding="utf-8") as handle:
                 payload = json.load(handle)
@@ -345,64 +618,134 @@ def iter_dialogues(base_path: Path) -> Iterable[Tuple[Path, Dict[str, Any]]]:
             items = [payload]
         else:
             continue
+
         for dialogue in items:
             if isinstance(dialogue, dict) and isinstance(dialogue.get("turns"), list):
                 yield file_path, dialogue
 
 
-def process_local_multiwoz(
-    input_dir: Path = MULTIWOZ_DIR, output_dir: Path = OUTPUT_DIR
+def process_multiwoz(
+    input_dir: Path,
+    output_dir: Path,
+    seed: int = 0,
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    handles = {s: (output_dir / f"dialogues_tracker_{s}.jsonl").open("w", encoding="utf-8")
-               for s in SPLITS}
-    dialogue_ids = {s: set() for s in SPLITS}
+
     stats = Counter()
-    slot_counts = {s: Counter() for s in SLOT_NAMES}
+    slot_counts = {slot: Counter() for slot in SLOTS}
+    dialogue_ids = {split: set() for split in SPLITS}
+
+    handles = {
+        split: (output_dir / f"dialogues_{split}.jsonl").open(
+            "w", encoding="utf-8"
+        )
+        for split in SPLITS
+    }
 
     try:
         for file_path, dialogue in iter_dialogues(input_dir):
             stats["scanned"] += 1
-            records, repaired = build_dialogue_records(dialogue)
+
+            services = dialogue.get("services")
+            if services:
+                normalized_services = {
+                    str(service).strip().lower() for service in services
+                }
+                if not normalized_services.intersection(RESTAURANT_SERVICES):
+                    continue
+
+            split = assign_split(file_path, input_dir)
+            rng = random.Random(f"{seed}-{split}-{dialogue.get('dialogue_id')}")
+
+            area_map = plan_dialogue(dialogue, rng)
+            if area_map is None:
+                stats["unsupported_cuisine"] += 1
+                continue
+
+            records, repaired = build_dialogue_records(dialogue, area_map)
             if not records:
                 continue
-            split = assign_split(file_path, str(dialogue.get("dialogue_id")))
-            dialogue_ids[split].add(dialogue.get("dialogue_id"))
+
+            dialogue_id = str(dialogue.get("dialogue_id", "unknown"))
+            if dialogue_id in dialogue_ids[split]:
+                stats["duplicate_dialogues"] += 1
+                continue
+
+            dialogue_ids[split].add(dialogue_id)
             stats["dialogues_kept"] += 1
-            stats["repaired"] += repaired
+            stats["repairs"] += repaired
+
             for record in records:
-                for slot in SLOT_NAMES:
-                    val = record["slots"][slot]
-                    if val == UNKNOWN:
+                for slot in SLOTS:
+                    value = record["slots"][slot]
+                    if value == UNKNOWN:
                         slot_counts[slot]["UNKNOWN"] += 1
-                    elif val == ANY:
+                    elif value == ANY:
                         slot_counts[slot]["ANY"] += 1
                     else:
                         slot_counts[slot]["labelled"] += 1
-                handles[split].write(json.dumps(finalize(record), ensure_ascii=False) + "\n")
+
+                handles[split].write(
+                    json.dumps(finalize(record), ensure_ascii=False) + "\n"
+                )
                 stats[f"rows_{split}"] += 1
+
     finally:
         for handle in handles.values():
             handle.close()
 
-    for a in SPLITS:
-        for b in SPLITS:
-            if a < b:
-                assert not (dialogue_ids[a] & dialogue_ids[b]), f"Leak between {a} and {b}"
+    for i, split_a in enumerate(SPLITS):
+        for split_b in SPLITS[i + 1:]:
+            overlap = dialogue_ids[split_a] & dialogue_ids[split_b]
+            assert not overlap, f"Dialogue leakage: {split_a} / {split_b}: {overlap}"
 
-    print(f"Scanned: {stats['scanned']}  Kept: {stats['dialogues_kept']}  "
-          f"Acceptance-lag repairs: {stats['repaired']}")
-    for s in SPLITS:
-        print(f"{s}: {len(dialogue_ids[s])} dialogues, {stats[f'rows_{s}']} rows")
-    print("Slot label rates (over all rows):")
-    for slot in SLOT_NAMES:
-        c = slot_counts[slot]
-        total = sum(c.values()) or 1
-        print(f"  {slot}: labelled={c['labelled']} ({c['labelled']/total:.1%})  "
-              f"ANY={c['ANY']}  UNKNOWN={c['UNKNOWN']}")
-    print(f"Output dir: {output_dir.resolve()}")
+    print(
+        f"Scanned: {stats['scanned']} | "
+        f"Kept dialogues: {stats['dialogues_kept']} | "
+        f"Unsupported-cuisine drops: {stats['unsupported_cuisine']} | "
+        f"Acceptance repairs: {stats['repairs']}"
+    )
+
+    for split in SPLITS:
+        print(
+            f"{split}: {len(dialogue_ids[split])} dialogues, "
+            f"{stats[f'rows_{split}']} rows"
+        )
+
+    print("Slot label statistics:")
+    for slot in SLOTS:
+        counts = slot_counts[slot]
+        total = sum(counts.values()) or 1
+        print(
+            f"  {slot}: labelled={counts['labelled']} "
+            f"({counts['labelled'] / total:.1%}), "
+            f"ANY={counts['ANY']}, UNKNOWN={counts['UNKNOWN']}"
+        )
+
+    print(f"Output directory: {output_dir.resolve()}")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Build Makan Where? restaurant tracker training data."
+    )
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=Path("MultiWOZ_2.2"),
+        help="MultiWOZ 2.2 root containing train/dev/test directories",
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=Path("data"),
+        help="Output directory for JSONL files",
+    )
+    parser.add_argument("--seed", type=int, default=0)
+    args = parser.parse_args()
+
+    process_multiwoz(args.root, args.out, args.seed)
 
 
 if __name__ == "__main__":
-    process_local_multiwoz()
-
+    main()
