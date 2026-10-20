@@ -1,0 +1,42 @@
+AREA_POOL = {
+    "central": [
+        "Downtown Core",
+        "Bukit Merah",
+        "Bishan",
+        "Toa Payoh",
+        "Geylang",
+        "Kallang",
+        "Bukit Timah",
+        "Tanglin",
+        "Outram",
+        "River Valley",
+        "Queenstown",
+        "Novena",
+        "Marine Parade",
+    ],
+    "east": [
+        "Tampines",
+        "Bedok",
+        "Pasir Ris",
+    ],
+    "west": [
+        "Clementi",
+        "Bukit Batok",
+        "Jurong West",
+        "Jurong East",
+        "Choa Chu Kang",
+        "Bukit Panjang",
+    ],
+    "north": [
+        "Sembawang",
+        "Yishun",
+        "Woodlands",
+    ],
+    "north-east": [
+        "Hougang",
+        "Ang Mo Kio",
+        "Serangoon",
+        "Sengkang",
+        "Punggol",
+    ],
+}
