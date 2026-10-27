@@ -1,7 +1,7 @@
 """Draft [REPLY] inputs by replaying the synthetic [TRACK] dialogues through the real policy. Owner: Denise.
 
 For every user turn, the synthetic gold slot state stands in for the tracker. It is mapped to
-the backend's values (tracker.stub.ALIASES + the place catalogue), merged with critiques by
+the backend's values (tracker/values.py + the place catalogue), merged with critiques by
 apply_tracker_output, and policy.decide picks the action - so the actions come from the same
 code that runs at serving time. Each row is one turn:
 
@@ -35,7 +35,7 @@ from typing import Iterable, NamedTuple, Optional
 from src import recommender
 from src.policy import apply_tracker_output, decide
 from src.schemas import ANY, CRITIQUES, SLOTS, UNKNOWN, DialogueState, PolicyAction, TrackerOutput, empty_slots
-from src.tracker.stub import ALIASES
+from src.tracker.values import place_value
 
 from .hf import build_prompt
 
@@ -77,7 +77,7 @@ def soft_value(slot: str, value: str) -> str:
         if value.startswith("above") or not m:
             return ANY  # "dun mind pay more": no cap
         return f"<={m.group(2) or m.group(1)}"
-    return ALIASES.get(slot, {}).get(value.lower(), value.lower())
+    return place_value(slot, value)
 
 
 def relex_plan(dialogue: list[dict], vocab: Vocab, rng: random.Random) -> dict:
@@ -87,9 +87,9 @@ def relex_plan(dialogue: list[dict], vocab: Vocab, rng: random.Random) -> dict:
     def plan_slot(slot, allowed) -> Optional[str]:
         values = dict.fromkeys(t["gold"][slot] for t in dialogue if t["gold"][slot] not in (UNKNOWN, ANY))
         # values kept as they are, so a swapped-in one never repeats them ("Korean, not Korean")
-        used = {ALIASES[slot].get(v.lower()) for v in values} & set(allowed)
+        used = {place_value(slot, v) for v in values} & set(allowed)
         for v in values:
-            canon = ALIASES[slot].get(v.lower())
+            canon = place_value(slot, v)
             if canon in allowed:
                 plan[(slot, v)] = (canon, None)
             else:

@@ -25,6 +25,9 @@ Store them as **JSONL**: one dialogue per line, files named `gold_<annotator>_<n
 `gold_state` is cumulative: it is the state the tracker + critiques should have produced
 after reading every turn up to and including this one. Slots use the same values as
 `src/schemas.py`: `"UNKNOWN"` (not mentioned yet), `"ANY"` (no preference), or a value.
+Values are **place-list values, after translation** (`src/tracker/values.py`): `"korean"`,
+`"downtown core"` for "bugis side", `"<=10"`, `"19:00"`; not the tracker's raw `"Korean"`,
+`"Bugis"`, `"below $10"`, `"7pm"`.
 
 You do not label system replies - the policy decides those, and the tracker is evaluated on the
 state after each user turn.
@@ -51,7 +54,7 @@ state after each user turn.
       "english_version": "Korean, in the Bugis area.",
       "style": "singlish",
       "gold_state": {
-        "slots": {"cuisine": "korean", "area": "bugis", "budget": "UNKNOWN",
+        "slots": {"cuisine": "korean", "area": "downtown core", "budget": "UNKNOWN",
                   "dietary": "UNKNOWN", "setting": "UNKNOWN", "time": "UNKNOWN"},
         "excluded_place_ids": [], "radius_km": 2.0, "budget_max": null
       }
@@ -61,7 +64,7 @@ state after each user turn.
       "english_version": "That is too far.",
       "style": "singlish",
       "gold_state": {
-        "slots": {"cuisine": "korean", "area": "bugis", "budget": "UNKNOWN",
+        "slots": {"cuisine": "korean", "area": "downtown core", "budget": "UNKNOWN",
                   "dietary": "UNKNOWN", "setting": "UNKNOWN", "time": "UNKNOWN"},
         "excluded_place_ids": [], "radius_km": 1.0, "budget_max": null
       }

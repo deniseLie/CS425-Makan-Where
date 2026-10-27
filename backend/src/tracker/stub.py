@@ -1,43 +1,19 @@
 """Keyword/regex tracker stub. Only looks at the latest user turn and carries
-over everything else from `prev`."""
+over everything else from `prev`. Its phrases come from the translator's tables
+(values.py), so it writes place-list values directly."""
 
 import re
 
 from src.schemas import ANY, REQUIRED_SLOTS, SOFT_SLOTS, UNKNOWN, DialogueState, TrackerOutput, Turn
 
-ALIASES: dict[str, dict[str, str]] = {
-    "cuisine": {
-        "korean": "korean", "kbbq": "korean", "kimchi": "korean",
-        "japanese": "japanese", "sushi": "japanese", "ramen": "japanese",
-        "chinese": "chinese", "zi char": "chinese", "zichar": "chinese", "chicken rice": "chinese",
-        "malay": "malay", "nasi lemak": "malay", "nasi padang": "malay",
-        "indian": "indian", "prata": "indian", "biryani": "indian",
-        "western": "western", "burger": "western", "pasta": "western",
-        "thai": "thai",
-    },
-    "area": {
-        "bugis": "bugis", "kampong glam": "bugis",
-        "orchard": "orchard",
-        "tampines": "tampines",
-        "jurong east": "jurong east", "jurong": "jurong east", "je": "jurong east",
-        "chinatown": "chinatown",
-    },
-    "dietary": {
-        "halal": "halal", "muslim": "halal", "no pork": "halal",
-        "vegetarian": "vegetarian", "veggie": "vegetarian", "vegan": "vegetarian",
-    },
-    "setting": {
-        "hawker": "hawker", "kopitiam": "hawker", "coffeeshop": "hawker",
-        "food court": "foodcourt", "foodcourt": "foodcourt",
-        "cafe": "cafe", "restaurant": "restaurant", "aircon": "restaurant",
-    },
-    "time": {
-        "breakfast": "breakfast", "lunch": "lunch", "dinner": "dinner",
-        "supper": "late_night", "late night": "late_night",
-    },
-    "budget": {
-        "cheap": "<=8", "budget": "<=8", "affordable": "<=8",
-    },
+from .values import TABLES
+
+# Stub-only phrases on top of the translator's tables.
+EXTRA_PHRASES: dict[str, dict[str, str]] = {
+    "budget": {"cheap": "<=8", "budget": "<=8", "affordable": "<=8"},
+}
+PHRASES: dict[str, dict[str, str]] = {
+    slot: {**TABLES.get(slot, {}), **EXTRA_PHRASES.get(slot, {})} for slot in TABLES
 }
 
 ANY_PHRASES = ["anything also can", "anything can", "any also can", "anything",
@@ -45,6 +21,8 @@ ANY_PHRASES = ["anything also can", "anything can", "any also can", "anything",
 CRITIQUE_PHRASES = {
     "too_far": ["too far", "so far", "far leh", "far lah", "nearer", "closer"],
     "too_expensive": ["too expensive", "too ex", "so ex", "pricey", "cheaper", "too pricey"],
+    "not_interested": ["dun want this one", "don't want this one", "dont want this one",
+                       "not this one", "next one", "something else"],
 }
 _BUDGET_RX = re.compile(r"(?:under|below|less than|within|<=?|max)\s*\$?\s*(\d+)", re.IGNORECASE)
 
@@ -59,11 +37,11 @@ def track(history: list[Turn], prev: DialogueState) -> TrackerOutput:
     slots = dict(prev.slots)
     mentioned = False
 
-    for slot, table in ALIASES.items():
-        # longest alias first so "jurong east" beats "jurong"
-        for alias in sorted(table, key=len, reverse=True):
-            if _has(text, alias):
-                slots[slot] = table[alias]
+    for slot, table in PHRASES.items():
+        # longest phrase first so "jurong east" beats "jurong" and "east"
+        for phrase in sorted(table, key=len, reverse=True):
+            if _has(text, phrase):
+                slots[slot] = table[phrase]
                 mentioned = True
                 break
 

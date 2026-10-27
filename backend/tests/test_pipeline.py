@@ -22,7 +22,7 @@ def test_three_turn_conversation(session):
 
     r2, d2 = session.step("korean lah, bugis side")
     assert d2["state"]["slots"]["cuisine"] == "korean"
-    assert d2["state"]["slots"]["area"] == "bugis"
+    assert d2["state"]["slots"]["area"] == "downtown core"
     assert d2["action"]["kind"] == "recommend"
     first_ids = [p["place_id"] for p in d2["action"]["places"]]
     for p in d2["action"]["places"]:

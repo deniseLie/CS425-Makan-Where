@@ -7,7 +7,10 @@ training data, the gold eval set and the logs are all stored in this format.
 Slot values are always strings:
     UNKNOWN  - the user has not mentioned this slot yet
     ANY      - the user said they have no preference ("anything also can")
-    <value>  - a concrete value, e.g. "korean", "bugis", "halal", "<=8"
+    <value>  - a concrete value, e.g. "korean", "downtown core", "halal", "<=8"
+
+Slots hold place-list values. The trained tracker writes what the user said ("Western",
+"Bugis", "below $10"); src/tracker/values.py translates that before it reaches the state.
 """
 
 from __future__ import annotations
@@ -25,7 +28,7 @@ SOFT_SLOTS = ["dietary", "setting", "time"]   # asked only to narrow a big candi
 # budget: hard filter if the user states it, never asked
 
 STYLES = ("singlish", "english")
-CRITIQUES = ("too_far", "too_expensive")
+CRITIQUES = ("too_far", "too_expensive", "not_interested")
 ACTION_KINDS = ("ask", "recommend", "fallback_recommend")
 
 
@@ -101,7 +104,7 @@ class TrackerOutput(_JSONMixin):
 
     slots: dict[str, str] = field(default_factory=empty_slots)
     reject: Optional[str] = None      # place_id the user rejected this turn
-    critique: Optional[str] = None    # "too_far" | "too_expensive" | None
+    critique: Optional[str] = None    # "too_far" | "too_expensive" | "not_interested" | None
 
     def __post_init__(self) -> None:
         self.slots = {**empty_slots(), **self.slots}

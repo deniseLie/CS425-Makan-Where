@@ -41,8 +41,23 @@ every turn as one JSON line in `backend/logs/<session_id>.jsonl`.
 | `dietary`, `setting`, `time` | soft | default ANY; asked only to narrow >10 candidates |
 
 Each slot is `"UNKNOWN"` (not mentioned), `"ANY"` (no preference) or a value string
-(`"korean"`, `"bugis"`, `"halal"`, `"<=8"`, ...). All shared types live in
+(`"korean"`, `"downtown core"`, `"halal"`, `"<=8"`, ...). All shared types live in
 [`backend/src/schemas.py`](backend/src/schemas.py) - that file is the contract.
+
+The tracker writes values the way the user said them; `src/tracker/values.py` translates them
+into the values the place list uses, right after `track()`:
+
+| slot | tracker value → place-list value |
+|---|---|
+| `cuisine` | lowercase (`Western` → `western`); a dish → its cuisine (`chicken rice` → `chinese`, `nasi lemak` → `malay`, `roti prata` → `indian`) |
+| `area` | planning area → lowercase (`Ang Mo Kio` → `ang mo kio`); landmark → its planning area (`Bugis` → `downtown core`, `NUS` → `queenstown`); a region stays a region (`east`) |
+| `budget` | `below $5` → `<=5`, `below $10` → `<=10`, `$10-20` → `<=20`, `above $20` → `ANY` |
+| `dietary` | `halal`, `vegetarian`, `no beef` stay; `vegan` → `vegetarian`, `no pork` → `halal` |
+| `setting` | `hawker`, `aircon`, `cafe`, `food court` |
+| `time` | meal words stay (`supper` → `late night`); exact times → `HH:MM` (`7pm` → `19:00`). `meal_of("19:30")` → `dinner` |
+
+Values already in place-list form are left alone; anything not in the tables is lowercased and
+passed through.
 
 ## Setup & run
 
@@ -90,7 +105,7 @@ creating a new session).
 |---|---|---|---|
 | `backend/src/normalizer` | `normalize(text: str) -> str` | Varidhi | returns text unchanged |
 | `backend/src/style` | `detect_style(text: str) -> str` | Varidhi | particle/keyword heuristic |
-| `backend/src/tracker` | `track(history: list[Turn], prev: DialogueState) -> TrackerOutput` | Nichole | alias dict + regex, carries over prev slots |
+| `backend/src/tracker` | `track(history: list[Turn], prev: DialogueState) -> TrackerOutput` | Nichole | phrase tables from `values.py` + regex, carries over prev slots |
 | `backend/src/policy` | `decide(state, n_asked, recommender, query_norm="", user_latlon=None) -> PolicyAction`<br>`apply_tracker_output(prev, out) -> DialogueState` | Nichole | real rules (see `rules.py`) |
 | `backend/src/recommender` | `candidates(state, user_latlon=None) -> list[dict]`<br>`rank(state, query_norm, user_latlon, k=3) -> list[RankedPlace]`<br>`load_places()`, `place_names()` | Yuhanna | pandas filter on `data/master/places_sample.csv`, score = rating |
 | `backend/src/generator` | `generate(action: PolicyAction, style: str, user_text: str) -> str`<br>`template_reply(action, style)` | Denise | template replies in both styles |

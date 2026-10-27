@@ -34,7 +34,7 @@ def test_dialogue_follows_the_real_policy():
     assert after["user_text"] == "too far lah"
     assert (ask_cuisine["action"]["kind"], ask_cuisine["action"]["ask_slot"]) == ("ask", "cuisine")
     assert (ask_area["action"]["kind"], ask_area["action"]["ask_slot"]) == ("ask", "area")
-    assert rec["state"]["slots"]["setting"] == "restaurant"  # the tracker stub's alias for aircon
+    assert rec["state"]["slots"]["setting"] == "aircon"
     area = rec["state"]["slots"]["area"]
     assert area in {"bugis", "tampines"}  # an area that serves korean replaces "Downtown Core"
     assert rec["user_text"] == f"{area.title()} side lah"
