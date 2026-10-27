@@ -1,7 +1,7 @@
 """End-to-end pipeline for one user turn. Owner: Denise.
 
-raw -> normalize -> detect_style -> track -> apply critiques -> policy.decide
-    -> (recommender) -> generate -> guardrail -> reply
+raw -> normalize -> detect_style -> track -> translate values -> apply critiques
+    -> policy.decide -> (recommender) -> generate -> guardrail -> reply
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ from src.policy import apply_tracker_output, decide
 from src.schemas import DialogueState, PolicyAction, Turn
 from src.style import detect_style
 from src.tracker import track
+from src.tracker.values import translate
 
 LOG_DIR = Path(__file__).resolve().parents[1] / "logs"
 
@@ -62,7 +63,7 @@ class MakanSession:
         style = detect_style(raw_text)
         turn = Turn(raw=raw_text, normalized=normalized, style=style)
 
-        tracker_out = track(self.history + [turn], self.state)
+        tracker_out = translate(track(self.history + [turn], self.state))
         self.state = apply_tracker_output(self.state, tracker_out)
 
         action = decide(self.state, self.n_asked, recommender,

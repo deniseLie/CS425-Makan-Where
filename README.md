@@ -19,6 +19,7 @@ raw text
   → detect_style     SingBERT: "singlish" | "english"                (src/style)
   → track            Qwen2.5-1.5B + LoRA, task [TRACK]: reads the    (src/tracker)
                      whole dialogue, outputs the FULL slot state as JSON
+  → translate        code: tracker values → place-list values        (src/tracker/values.py)
   → apply critiques  code: reject / too_far / too_expensive          (src/policy/critiques.py)
   → policy.decide    rules: ask or recommend                         (src/policy/rules.py)
   → recommender      filter + hybrid ranking over places.csv         (src/recommender)
@@ -121,6 +122,10 @@ value entropy; else if no candidates → relax `setting → time → budget` and
 Critiques: `reject` → add to `excluded_place_ids`; `too_far` → `radius_km *= 0.5`;
 `too_expensive` → `budget_max *= 0.7` (or 15 if no budget yet). The radius is measured from the
 user's location if known, otherwise from the centre of the chosen area.
+
+The `[TRACK]` prompt and answer follow the tracker dataset's layout: `User:` / `Normalized:` /
+`System:` lines after `[TRACK]`, and an answer of the six slots plus `"feedback"` (`none`,
+`too_far`, `too_expensive`, `not_interested`). See `backend/src/tracker/hf.py`.
 
 ## Plugging in a trained model (Hugging Face Hub)
 

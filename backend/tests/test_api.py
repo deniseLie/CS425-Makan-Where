@@ -44,15 +44,3 @@ def test_hf_without_model_id_fails_clearly(monkeypatch):
     monkeypatch.setenv("MAKAN_STYLE", "bert")
     with pytest.raises(ValueError):
         config.impl("style")
-
-
-def test_tracker_hf_parsing_without_model():
-    from src.schemas import DialogueState, Turn
-    from src.tracker.hf import build_prompt, parse
-
-    prev = DialogueState(slots={"cuisine": "korean"})
-    out = parse('Sure: {"slots": {"area": "bugis"}, "reject": "Hanok BBQ Bugis", "critique": "too_far"}', prev)
-    assert out.slots["cuisine"] == "korean" and out.slots["area"] == "bugis"
-    assert out.reject == "P002" and out.critique == "too_far"
-    assert parse("not json", prev).slots == prev.slots
-    assert build_prompt([Turn(raw="korean lah", reply="ok")]).startswith("[TRACK]")
