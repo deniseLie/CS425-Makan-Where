@@ -4,6 +4,7 @@
 |---|---|---|
 | `woz_converted_data/` | MultiWOZ 2.2 restaurant dialogues as `[TRACK]` rows | `convert_final.py` |
 | `synthetic_data/` | synthetic Singlish `[TRACK]` dialogues | `build_synthetic.py` |
+| `reply_data/` | synthetic `[REPLY]` rows for the reply generator, replies written by Claude Code (see its README) | `backend/src/generator/drafts.py`, `teacher.py`, `checks.py` |
 | `master/places.csv` | recommender place database | `convert_nea_places.py` |
 | `raw/` | raw downloads, not committed (gitignored): `NEA_Establishments.xlsx` (source of `places.csv`), `area_region_map.xlsx` (planning area → region) | - |
 
