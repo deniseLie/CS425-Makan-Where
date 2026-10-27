@@ -24,7 +24,6 @@ data/**/*.duckdb
 data/**/*.db
 data/**/*.pkl
 data/**/*.npy
-data/master/places.csv
 
 # model weights / training outputs
 models/
