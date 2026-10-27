@@ -53,6 +53,7 @@ class MakanSession:
         self.history: list[Turn] = []
         self.state = DialogueState()
         self.n_asked = 0
+        self.last_action: Optional[PolicyAction] = None
 
     @property
     def log_path(self) -> Optional[Path]:
@@ -64,12 +65,17 @@ class MakanSession:
         turn = Turn(raw=raw_text, normalized=normalized, style=style)
 
         tracker_out = translate(track(self.history + [turn], self.state))
+        # "dun want this one": the tracker doesn't name the place, but we know what we showed last.
+        if tracker_out.critique == "not_interested" and tracker_out.reject is None \
+                and self.last_action is not None and self.last_action.places:
+            tracker_out.reject = self.last_action.places[0].place_id
         self.state = apply_tracker_output(self.state, tracker_out)
 
         action = decide(self.state, self.n_asked, recommender,
                         query_norm=normalized, user_latlon=self.user_latlon)
         if action.kind == "ask":
             self.n_asked += 1
+        self.last_action = action
 
         reply = generate(action, style, raw_text)
         reply, guard_triggered = guardrail(reply, action, style)

@@ -20,7 +20,8 @@ raw text
   → track            Qwen2.5-1.5B + LoRA, task [TRACK]: reads the    (src/tracker)
                      whole dialogue, outputs the FULL slot state as JSON
   → translate        code: tracker values → place-list values        (src/tracker/values.py)
-  → apply critiques  code: reject / too_far / too_expensive          (src/policy/critiques.py)
+  → apply critiques  code: reject / too_far / too_expensive /        (src/policy/critiques.py)
+                     not_interested
   → policy.decide    rules: ask or recommend                         (src/policy/rules.py)
   → recommender      filter + hybrid ranking over places.csv         (src/recommender)
                      (only when recommending)
@@ -120,8 +121,9 @@ value entropy; else if no candidates → relax `setting → time → budget` and
 `fallback_recommend`; else recommend the top 3.
 
 Critiques: `reject` → add to `excluded_place_ids`; `too_far` → `radius_km *= 0.5`;
-`too_expensive` → `budget_max *= 0.7` (or 15 if no budget yet). The radius is measured from the
-user's location if known, otherwise from the centre of the chosen area.
+`too_expensive` → `budget_max *= 0.7` (or 15 if no budget yet); `not_interested` ("dun want
+this one") → the pipeline sets `reject` to the top pick of the last recommendation. The radius is
+measured from the user's location if known, otherwise from the centre of the chosen area.
 
 The `[TRACK]` prompt and answer follow the tracker dataset's layout: `User:` / `Normalized:` /
 `System:` lines after `[TRACK]`, and an answer of the six slots plus `"feedback"` (`none`,
