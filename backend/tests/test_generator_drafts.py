@@ -36,7 +36,7 @@ def test_dialogue_follows_the_real_policy():
     assert (ask_area["action"]["kind"], ask_area["action"]["ask_slot"]) == ("ask", "area")
     assert rec["state"]["slots"]["setting"] == "aircon"
     area = rec["state"]["slots"]["area"]
-    assert area in {"bugis", "tampines"}  # an area that serves korean replaces "Downtown Core"
+    assert area == "downtown core"  # an area the catalogue has stays as it is
     assert rec["user_text"] == f"{area.title()} side lah"
     assert rec["action"]["kind"] in ("recommend", "fallback_recommend") and rec["action"]["places"]
     assert after["state"]["radius_km"] == rec["state"]["radius_km"] / 2

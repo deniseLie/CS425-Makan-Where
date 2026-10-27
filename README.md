@@ -107,7 +107,7 @@ creating a new session).
 | `backend/src/style` | `detect_style(text: str) -> str` | Varidhi | particle/keyword heuristic |
 | `backend/src/tracker` | `track(history: list[Turn], prev: DialogueState) -> TrackerOutput` | Nichole | phrase tables from `values.py` + regex, carries over prev slots |
 | `backend/src/policy` | `decide(state, n_asked, recommender, query_norm="", user_latlon=None) -> PolicyAction`<br>`apply_tracker_output(prev, out) -> DialogueState` | Nichole | real rules (see `rules.py`) |
-| `backend/src/recommender` | `candidates(state, user_latlon=None) -> list[dict]`<br>`rank(state, query_norm, user_latlon, k=3) -> list[RankedPlace]`<br>`load_places()`, `place_names()` | Yuhanna | pandas filter on `data/master/places_sample.csv`, score = rating |
+| `backend/src/recommender` | `candidates(state, user_latlon=None) -> list[dict]`<br>`rank(state, query_norm, user_latlon, k=3) -> list[RankedPlace]`<br>`load_places()`, `place_names()` | Yuhanna | pandas filter on `data/master/places.csv`, score = rating |
 | `backend/src/generator` | `generate(action: PolicyAction, style: str, user_text: str) -> str`<br>`template_reply(action, style)` | Denise | template replies in both styles |
 | `backend/src/pipeline.py` | `MakanSession.step(raw_text) -> (reply, debug)` | Denise | - |
 
@@ -186,16 +186,19 @@ makan-where/
 │   │   ├── tracker/     policy/   (Nichole)
 │   │   ├── recommender/           (Yuhanna)
 │   │   └── generator/             (Denise)
-│   ├── tests/
+│   ├── tests/                 data/places_sample.csv: made-up places the tests run on
 │   ├── requirements.txt       API + stubs + tests
 │   └── requirements-ml.txt    + torch/transformers/peft for MAKAN_*=hf
 ├── frontend/                  React + Vite chat UI with a pipeline-state panel
 ├── training/                  notebooks / scripts that train and push models to the HF Hub
-├── data/{raw,master,train}/   raw + large files gitignored; master/places_sample.csv is fake demo data
+├── data/                      [TRACK] datasets + master/places.csv (format in data/README.md)
 ├── eval/gold/                 hand-labelled test dialogues (format in eval/gold/README.md)
 └── docs/plan.md               project plan
 ```
 
-`data/master/places_sample.csv` contains 21 made-up places (realistic names/locations, not real
-data) so the stub pipeline runs end to end. Point `MAKAN_PLACES_CSV` at the real `places.csv`
-when it is ready.
+The recommender reads `data/master/places.csv` (NEA licensed eating establishments; set
+`MAKAN_PLACES_CSV` to use another file). It has no `cuisine`, `halal`, `vegetarian`, `price`,
+`rating` or `setting` values yet (see [data/README.md](data/README.md)), so for now a request with
+a cuisine finds nothing; area and region requests work. The tests run on
+`backend/tests/data/places_sample.csv` instead: 21 made-up places in the same columns, set by
+`backend/tests/conftest.py`.

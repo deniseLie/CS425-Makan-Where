@@ -18,7 +18,7 @@ def test_asks_cuisine_when_missing():
 def test_asks_area_when_only_cuisine_known():
     a = decide(state(cuisine="korean"), 1, recommender)
     assert a.kind == "ask" and a.ask_slot == "area"
-    assert "bugis" in a.ask_options  # options come from korean candidates
+    assert "downtown core" in a.ask_options  # options come from korean candidates
 
 
 def test_any_counts_as_answered():
@@ -27,7 +27,7 @@ def test_any_counts_as_answered():
 
 
 def test_recommends_when_required_filled():
-    a = decide(state(cuisine="korean", area="bugis"), 1, recommender)
+    a = decide(state(cuisine="korean", area="downtown core"), 1, recommender)
     assert a.kind == "recommend"
     assert 1 <= len(a.places) <= 3
     assert all(isinstance(p, RankedPlace) for p in a.places)
@@ -39,8 +39,8 @@ def test_stops_asking_after_three():
 
 
 def test_fallback_when_no_candidates():
-    # no korean hawker in bugis within 1 km -> relax setting
-    s = DialogueState(slots={"cuisine": "korean", "area": "bugis", "setting": "hawker"}, radius_km=1.0)
+    # no korean hawker in downtown core (Bugis) within 1 km -> relax setting
+    s = DialogueState(slots={"cuisine": "korean", "area": "downtown core", "setting": "hawker"}, radius_km=1.0)
     assert recommender.candidates(s) == []
     a = decide(s, 1, recommender)
     assert a.kind == "fallback_recommend"
@@ -49,28 +49,28 @@ def test_fallback_when_no_candidates():
 
 
 def test_fallback_relaxes_budget_last():
-    s = DialogueState(slots={"cuisine": "western", "area": "orchard", "budget": "<=5"}, budget_max=5.0)
+    s = DialogueState(slots={"cuisine": "western", "area": "river valley", "budget": "<=5"}, budget_max=5.0)
     a = decide(s, 1, recommender)
     assert a.kind == "fallback_recommend" and a.relaxed_slot == "budget" and a.places
 
 
 def test_fallback_with_nothing_at_all():
-    a = decide(state(cuisine="martian", area="bugis"), 1, recommender)
+    a = decide(state(cuisine="martian", area="downtown core"), 1, recommender)
     assert a.kind == "fallback_recommend" and a.places == []
 
 
 def test_entropy_ask_when_many_candidates():
-    rows = [{"cuisine": "korean", "area": "bugis", "dietary": d, "setting": "restaurant"}
+    rows = [{"cuisine": "korean", "area": "downtown core", "dietary": d, "setting": "restaurant"}
             for d in ["halal", "none", "vegetarian"] * 4]  # 12 rows; dietary varies, setting doesn't
     fake = SimpleNamespace(candidates=lambda st, user_latlon=None: rows,
                            rank=lambda *a, **k: [])
-    a = decide(state(cuisine="korean", area="bugis"), 1, fake)
+    a = decide(state(cuisine="korean", area="downtown core"), 1, fake)
     assert a.kind == "ask" and a.ask_slot == "dietary"
     assert set(a.ask_options) == {"halal", "vegetarian"}
 
 
 def test_critiques():
-    prev = DialogueState(slots={"cuisine": "korean", "area": "bugis"})
+    prev = DialogueState(slots={"cuisine": "korean", "area": "downtown core"})
     out = TrackerOutput(slots=prev.slots, critique="too_far", reject="P002")
     s = apply_tracker_output(prev, out)
     assert s.radius_km == 1.0 and s.excluded_place_ids == ["P002"]

@@ -1,4 +1,4 @@
-"""Pandas filter over data/master/places_sample.csv, scored by rating."""
+"""Pandas filter over data/master/places.csv, scored by rating."""
 
 from __future__ import annotations
 
@@ -8,41 +8,45 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 
 from src.config import PLACES_CSV
 from src.schemas import ANY, UNKNOWN, DialogueState, RankedPlace
 
 
-# Reference point for the radius filter when we don't know where the user is.
-AREA_CENTROIDS = {
-    "bugis": (1.2993, 103.8555),
-    "orchard": (1.3040, 103.8318),
-    "tampines": (1.3526, 103.9447),
-    "jurong east": (1.3331, 103.7423),
-    "chinatown": (1.2838, 103.8443),
-}
-
-
 @lru_cache(maxsize=1)
 def load_places(path: Path = PLACES_CSV) -> pd.DataFrame:
     df = pd.read_csv(path)
-    df["halal"] = df["halal"].astype(bool)
-    df["vegetarian"] = df["vegetarian"].astype(bool)
+    # places.csv copies NEA as is: upper-case planning areas and regions ("DOWNTOWN CORE",
+    # "North-East"), and blanks where NEA has no data. The tracker's values are lower case,
+    # and a blank halal / vegetarian means "not known to be", never True.
+    for col in ("area", "region"):
+        df[col] = df[col].str.lower()
+    df["halal"] = df["halal"].fillna(0).astype(bool)
+    df["vegetarian"] = df["vegetarian"].fillna(0).astype(bool)
     return df
+
+
+@lru_cache(maxsize=1)
+def area_centroids() -> dict[str, tuple[float, float]]:
+    """Reference point per planning area for the radius filter when we don't know where the
+    user is: the average position of the area's places."""
+    means = load_places().groupby("area")[["lat", "lon"]].mean()
+    return {area: (r.lat, r.lon) for area, r in means.iterrows()}
+
+
+def is_region(value: str) -> bool:
+    return value in set(load_places()["region"].dropna())
 
 
 def place_names() -> list[str]:
     return load_places()["name"].tolist()
 
 
-def dietary_label(row) -> str:
+def dietary_labels(df: pd.DataFrame) -> np.ndarray:
     """Single dietary value per row, used for option lists / entropy."""
-    if row["halal"]:
-        return "halal"
-    if row["vegetarian"]:
-        return "vegetarian"
-    return "none"
+    return np.select([df["halal"], df["vegetarian"]], ["halal", "vegetarian"], default="none")
 
 
 def budget_cap(state: DialogueState) -> Optional[float]:
@@ -61,7 +65,7 @@ def haversine_km(a: tuple[float, float], b: tuple[float, float]) -> float:
 def _ref_point(state: DialogueState, user_latlon) -> Optional[tuple[float, float]]:
     if user_latlon is not None:
         return tuple(user_latlon)
-    return AREA_CENTROIDS.get(state.slots["area"])
+    return area_centroids().get(state.slots["area"])  # a region has no single centre -> None
 
 
 def _filtered(state: DialogueState, user_latlon=None) -> pd.DataFrame:
@@ -73,8 +77,8 @@ def _filtered(state: DialogueState, user_latlon=None) -> pd.DataFrame:
 
     if has("cuisine"):
         df = df[df["cuisine"] == s["cuisine"]]
-    if has("area"):
-        df = df[df["area"] == s["area"]]
+    if has("area"):  # a region ("east") keeps every place in its planning areas
+        df = df[df["region" if is_region(s["area"]) else "area"] == s["area"]]
     if has("dietary"):
         if s["dietary"] == "halal":
             df = df[df["halal"]]
@@ -82,7 +86,7 @@ def _filtered(state: DialogueState, user_latlon=None) -> pd.DataFrame:
             df = df[df["vegetarian"]]
     if has("setting"):
         df = df[df["setting"] == s["setting"]]
-    # time: no opening-hours column in the sample data yet -> no condition
+    # time: no opening-hours column yet -> no condition
     cap = budget_cap(state)
     if cap is not None:
         df = df[df["price_min"] <= cap]
@@ -100,28 +104,32 @@ def _filtered(state: DialogueState, user_latlon=None) -> pd.DataFrame:
 
 def candidates(state: DialogueState, user_latlon=None) -> list[dict]:
     df = _filtered(state, user_latlon)
-    df = df.assign(dietary=[dietary_label(r) for _, r in df.iterrows()])
+    df = df.assign(dietary=dietary_labels(df))
     return df.to_dict("records")
 
 
 def _reasons(row) -> list[str]:
+    """Blank columns (no price or rating yet) are left out."""
     reasons = []
     if row["halal"]:
         reasons.append("halal")
     if row["vegetarian"]:
         reasons.append("vegetarian")
-    reasons.append(f"~${(row['price_min'] + row['price_max']) / 2:.0f}")
+    if pd.notna(row["price_min"]) and pd.notna(row["price_max"]):
+        reasons.append(f"~${(row['price_min'] + row['price_max']) / 2:.0f}")
     if not math.isnan(row["dist_km"]):
         d = row["dist_km"]
         reasons.append(f"{max(100, round(d * 1000, -2)):.0f} m away" if d < 1 else f"{d:.1f} km away")
-    reasons.append(f"{row['rating']:.1f} stars")
+    if pd.notna(row["rating"]):
+        reasons.append(f"{row['rating']:.1f} stars")
     return reasons
 
 
 def rank(state: DialogueState, query_norm: str = "", user_latlon=None, k: int = 3) -> list[RankedPlace]:
-    """Stub: score = rating (ties broken by review count). query_norm is ignored."""
+    """Stub: score = rating (ties broken by review count; no rating scores 0). query_norm is ignored."""
     df = _filtered(state, user_latlon).sort_values(["rating", "n_reviews"], ascending=False).head(k)
     return [
-        RankedPlace(place_id=r["place_id"], name=r["name"], score=float(r["rating"]), reasons=_reasons(r))
+        RankedPlace(place_id=r["place_id"], name=r["name"],
+                    score=float(r["rating"]) if pd.notna(r["rating"]) else 0.0, reasons=_reasons(r))
         for _, r in df.iterrows()
     ]

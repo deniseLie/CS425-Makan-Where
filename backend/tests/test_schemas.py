@@ -18,7 +18,7 @@ def test_defaults():
     TrackerOutput(slots={"cuisine": "korean"}, reject="P002", critique="too_far"),
     RankedPlace(place_id="P001", name="X", score=4.3, reasons=["halal", "~$5"]),
     PolicyAction(kind="recommend", places=[RankedPlace("P001", "X", 4.3, ["~$5"])]),
-    PolicyAction(kind="ask", ask_slot="area", ask_options=["bugis", "orchard"]),
+    PolicyAction(kind="ask", ask_slot="area", ask_options=["downtown core", "river valley"]),
     PolicyAction(kind="fallback_recommend", relaxed_slot="setting"),
 ])
 def test_round_trip(obj):

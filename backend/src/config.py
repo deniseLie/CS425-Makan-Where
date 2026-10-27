@@ -18,7 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]  # repo root
 DATA_DIR = Path(os.getenv("MAKAN_DATA_DIR", ROOT / "data"))
-PLACES_CSV = Path(os.getenv("MAKAN_PLACES_CSV", DATA_DIR / "master" / "places_sample.csv"))
+PLACES_CSV = Path(os.getenv("MAKAN_PLACES_CSV", DATA_DIR / "master" / "places.csv"))
 FRONTEND_DIST = ROOT / "frontend" / "dist"
 CORS_ORIGINS = [o.strip() for o in os.getenv("MAKAN_CORS_ORIGINS", "").split(",") if o.strip()]
 

@@ -26,7 +26,9 @@ LOG_DIR = Path(__file__).resolve().parents[1] / "logs"
 
 def mentioned_places(reply: str, names: list[str]) -> set[str]:
     low = reply.lower()
-    return {n for n in names if re.search(rf"(?<!\w){re.escape(n.lower())}(?!\w)", low)}
+    # substring check first: compiling a regex for each of ~31k place names takes seconds
+    return {n for n in names
+            if n.lower() in low and re.search(rf"(?<!\w){re.escape(n.lower())}(?!\w)", low)}
 
 
 def guardrail(reply: str, action: PolicyAction, style: str) -> tuple[str, bool]:

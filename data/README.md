@@ -92,17 +92,16 @@ Fixes that aren't deletions (also not applied):
 
 ### Pending
 
-Before the backend can use this file:
+The backend reads this file by default (`backend/src/config.py`). How it lines up with the tracker:
 
-- [ ] **Fill `halal` and `vegetarian` with 0/1 before pointing `MAKAN_PLACES_CSV` here.** The stub's
-      `load_places()` does `.astype(bool)`, which turns blanks into `True`, so every place counts as
-      halal and vegetarian. Fill them, or make `load_places()` treat blank as 0.
-- [ ] `backend/src/config.py` still defaults to `data/master/places_sample.csv`, which was deleted in
-      `af5a912`, so the stub recommender has no file unless `MAKAN_PLACES_CSV` is set.
-- [ ] Agree one format per slot value with the tracker. `area` here is upper-case planning areas
-      (`DOWNTOWN CORE`); the tracker stub uses lower-case landmarks (`bugis`); the synthetic data
-      uses title-case planning areas plus landmark aliases. Landmarks need the alias table from the
-      plan (landmark → planning area or centre point). The same goes for `setting` once it is filled.
+- [x] Blank `halal` / `vegetarian` count as 0: `load_places()` fills them before `.astype(bool)`.
+- [x] `area` and `region` are lower-cased on load (`DOWNTOWN CORE` → `downtown core`), which is
+      what the tracker's values become after `backend/src/tracker/values.py` translates them
+      (landmarks like `Bugis` → `downtown core`). A region slot (`east`) keeps the places in that
+      `region`; an area's centre for the radius filter is the average lat/lon of its rows.
+- [ ] `setting`: once filled, use the tracker's words (`hawker`, `aircon`, `cafe`, `food court`).
+      The `nea_type` mapping above uses other words (`restaurant`, `foodcourt`, `takeaway`).
+- [ ] Until `cuisine` is filled, any request that names a cuisine finds no places.
 
 Data quality:
 
