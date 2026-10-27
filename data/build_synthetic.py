@@ -15,6 +15,8 @@ Value conventions (agree with D):
   - area   : exactly what the user said: pool area, landmark alias ("Bugis"), or region ("east").
   - budget : below $5 | below $10 | $10-20 | above $20
   - time   : now | breakfast | lunch | dinner | late night   ("supper" -> late night)
+             or an exact time as 24-hour HH:MM ("7pm can?" -> 19:00). An exact time wins
+             over a meal word ("dinner around 7" -> 19:00).
   - feedback (about the LAST system recommendation, only for that turn):
              none | too_far | too_expensive | not_interested
     The code (not the tracker) knows which place was rejected, and applies the effect
@@ -101,8 +103,16 @@ VALUE_T = {
         "lunch": [("for lunch", "It is for lunch.")],
         "dinner": [("for dinner tonight", "For dinner tonight.")],
         "breakfast": [("breakfast one", "For breakfast.")],
+        # exact times: about a third of time values (see sample_value)
+        "19:00": [("7pm can?", "Is 7pm okay?"),
+                  ("dinner around 7 lor", "Dinner at around 7 pm.")],
+        "12:30": [("12.30 lunch can", "Lunch at 12:30 is fine.")],
+        "08:00": [("8am breakfast got?", "Is there breakfast at 8 am?")],
+        "23:00": [("after 11pm still open?", "Is it still open after 11 pm?")],
     },
 }
+EXACT_TIMES = [v for v in VALUE_T["time"] if ":" in v]
+MEAL_TIMES = [v for v in VALUE_T["time"] if ":" not in v]
 ANY_T = {
     "cuisine": [("anything also can", "Anything is fine."), ("dun mind what food", "I do not mind what food.")],
     "area": [("anywhere also can", "Anywhere is fine."), ("location dun matter", "Location does not matter.")],
@@ -137,6 +147,8 @@ def sample_value(slot, rng):
     if slot == "area":
         r = rng.random()
         return rng.choice(AREAS) if r < 0.6 else rng.choice(ALIASES) if r < 0.85 else rng.choice(REGIONS)
+    if slot == "time":
+        return rng.choice(EXACT_TIMES if rng.random() < 1 / 3 else MEAL_TIMES)
     return rng.choice(list(VALUE_T[slot]))
 
 

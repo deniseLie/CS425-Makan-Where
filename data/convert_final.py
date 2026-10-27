@@ -8,8 +8,9 @@ Outputs:
     data/dialogues_test.jsonl
 
 Each JSONL row represents one eligible USER turn:
-    input  : [TRACK] + relevant conversation history
-    output : JSON with exactly six slots
+    input  : [TRACK] + relevant conversation history, as User / Normalized /
+             System lines (the shared tracker format)
+    output : JSON with the six slots plus "feedback" (always "none" here)
 
 Slots:
     cuisine, area, budget, dietary, setting, time
@@ -18,6 +19,7 @@ Labels:
     UNKNOWN = not specified
     ANY     = explicit lack of preference
     value   = normalized preference
+    time    = exact booking time as HH:MM; the booking day is dropped
 
 Official split directories are preserved. If a dialogue cannot be assigned
 to an official split, processing stops instead of creating a new split.
@@ -143,6 +145,25 @@ AFFIRM_RE = re.compile(
 )
 AFFIRM_MAX_WORDS = 12
 
+# Booking times as MultiWOZ writes them: "19:30", "7:15 pm", "1330", "1300hrs".
+CLOCK_RE = re.compile(
+    r"(?:after |around |at )?(?P<hour>\d{1,2})(?:[:.]?(?P<minute>\d{2}))?"
+    r"\s*(?P<suffix>[ap]\.?m\.?|hrs)?",
+    re.IGNORECASE,
+)
+MEAL_WORDS = ("breakfast", "lunch", "dinner")
+
+# Leftover Cambridge contact details in system turns.
+# Phones: "01223 350688", "+44 1223 568988", "076-2009-8271", "1223 462354".
+PHONE_RE = re.compile(r"(?:\+44\s?|\b0|\b(?=122))\d(?:[\s-]?\d){8,10}(?!\d)")
+# Postcodes: "cb21dp", "cb2 1dp", "C.B 2, 1 U.J", "pe296fl", plus typos
+# such as "cb3al" or "cb23njand" that only the whole-token fallback catches.
+POSTCODE_RE = re.compile(
+    r"\b(?:c\.?\s?b|pe)\.?\s?\d{1,2}\s?[,.]?\s?\d\s?\.?\s?[a-z]\s?\.?\s?[a-z]\b"
+    r"|\b(?:cb|pe)\d\w*",
+    re.IGNORECASE,
+)
+
 INTERNAL_KEY_MAP = {
     "food": "cuisine",
     "restaurant-food": "cuisine",
@@ -216,14 +237,35 @@ def parse_restaurant_slot_values(
     return result
 
 
-def combine_time(day: str, clock: str) -> str:
-    known = [v for v in (day, clock) if v not in (UNKNOWN, ANY)]
+def booking_time(clock: str) -> Optional[str]:
+    """Keep only the clock time, as 24-hour HH:MM. The booking day is dropped.
 
-    if known:
-        return " ".join(known)
-    if ANY in (day, clock):
-        return ANY
-    return UNKNOWN
+    "7:15 pm" -> "19:15", "1330" -> "13:30", "around lunch time" -> "lunch".
+    Returns None for a time that is not stated outright ("an hour earlier"),
+    so the caller can drop the row.
+    """
+    if clock in (UNKNOWN, ANY):
+        return clock
+
+    match = CLOCK_RE.fullmatch(clock)
+    if match is None:
+        return next((meal for meal in MEAL_WORDS if meal in clock), None)
+
+    hour = int(match["hour"])
+    minute = int(match["minute"] or 0)
+    suffix = (match["suffix"] or "").replace(".", "").lower()
+
+    if suffix == "pm" and hour < 12:
+        hour += 12
+    elif suffix == "am" and hour == 12:
+        hour = 0
+    elif not suffix and 1 <= hour <= 6:
+        # Restaurant bookings without am/pm: "1:45" means 13:45.
+        hour += 12
+
+    if hour > 23 or minute > 59:
+        return None
+    return f"{hour:02d}:{minute:02d}"
 
 
 def snapshot(
@@ -239,10 +281,7 @@ def snapshot(
             else overrides.get(name, UNKNOWN)
         )
 
-    slots["time"] = combine_time(
-        belief.get("book_day", UNKNOWN),
-        belief.get("book_time", UNKNOWN),
-    )
+    slots["time"] = booking_time(belief.get("book_time", UNKNOWN))
 
     # MultiWOZ does not directly annotate these two application slots.
     slots["dietary"] = UNKNOWN
@@ -380,6 +419,24 @@ def plan_dialogue(
     return area_map
 
 
+def stable_number(text: str, digits: int) -> int:
+    """Hash a phone/postcode so the same original always maps the same way."""
+    key = re.sub(r"[\W_]", "", text.lower())
+    return int(hashlib.md5(key.encode()).hexdigest(), 16) % 10 ** digits
+
+
+def singapore_phone(match: re.Match) -> str:
+    original = re.sub(r"\D", "", match.group(0))
+    first = "9" if original.startswith(("07", "447")) else "6"  # mobile
+    number = f"{first}{stable_number(original, 7):07d}"
+    return f"{number[:4]} {number[4:]}"
+
+
+def singapore_postcode(match: re.Match) -> str:
+    n = stable_number(match.group(0), 6)
+    return f"{n % 82 + 1:02d}{n // 82 % 10000:04d}"
+
+
 def rewrite(
     text: str,
     area_map: Dict[str, str],
@@ -393,6 +450,9 @@ def rewrite(
 
     for old, new in cuisine_words.items():
         text = re.sub(rf"\b{re.escape(old)}\b", new, text, flags=re.I)
+
+    text = PHONE_RE.sub(singapore_phone, text)
+    text = POSTCODE_RE.sub(singapore_postcode, text)
 
     return text
 
@@ -547,20 +607,20 @@ def finalize(record: Dict[str, Any]) -> Dict[str, Any]:
     history = record.pop("history")
     slots = record.pop("slots")
 
-    record["input"] = (
-        "[TRACK]\n"
-        "Extract the current restaurant preferences from the conversation. "
-        "Return valid JSON with exactly these keys: "
-        "cuisine, area, budget, dietary, setting, time. "
-        "Use UNKNOWN when unmentioned and ANY only for an explicit "
-        "no-preference statement. Format known booking times as "
-        '"Tuesday 12:00" when both day and time are available.\n'
-        + "\n".join(
-            f'{message["role"].upper()}: {message["content"]}'
-            for message in history
-        )
+    lines = ["[TRACK]"]
+    for message in history:
+        if message["role"] == "user":
+            # MultiWOZ is already English, so Normalized repeats the text.
+            lines.append(f'User: {message["content"]}')
+            lines.append(f'Normalized: {message["content"]}')
+        else:
+            lines.append(f'System: {message["content"]}')
+
+    record["input"] = "\n".join(lines)
+    # MultiWOZ has no labels for rejected recommendations.
+    record["output"] = json.dumps(
+        {**slots, "feedback": "none"}, ensure_ascii=False
     )
-    record["output"] = json.dumps(slots, ensure_ascii=False)
 
     return record
 
@@ -676,6 +736,11 @@ def process_multiwoz(
             stats["repairs"] += repaired
 
             for record in records:
+                # Relative times ("an hour earlier") have no exact value.
+                if record["slots"]["time"] is None:
+                    stats["unreadable_time_rows"] += 1
+                    continue
+
                 for slot in SLOTS:
                     value = record["slots"][slot]
                     if value == UNKNOWN:
@@ -703,7 +768,8 @@ def process_multiwoz(
         f"Scanned: {stats['scanned']} | "
         f"Kept dialogues: {stats['dialogues_kept']} | "
         f"Unsupported-cuisine drops: {stats['unsupported_cuisine']} | "
-        f"Acceptance repairs: {stats['repairs']}"
+        f"Acceptance repairs: {stats['repairs']} | "
+        f"Unreadable-time row drops: {stats['unreadable_time_rows']}"
     )
 
     for split in SPLITS:

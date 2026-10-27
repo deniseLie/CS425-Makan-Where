@@ -7,6 +7,14 @@
 | `master/places.csv` | recommender place database | `convert_nea_places.py` |
 | `raw/` | raw downloads, not committed (gitignored): `NEA_Establishments.xlsx` (source of `places.csv`), `area_region_map.xlsx` (planning area → region) | - |
 
+Both `[TRACK]` datasets use the shared tracker format (`User:` / `Normalized:` / `System:` prompt
+lines; six slots plus `feedback` in the answer; times as `HH:MM` or a meal word, no day). Check
+every row after rebuilding either dataset:
+
+```bash
+python data/check_tracker_format.py
+```
+
 ## places.csv
 
 A plain conversion of NEA licensed eating establishments (`raw/NEA_Establishments.xlsx`): one place
