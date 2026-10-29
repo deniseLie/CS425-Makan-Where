@@ -7,7 +7,7 @@ from functools import lru_cache
 
 from src.config import model_id
 
-PREFIX = "Translate Singlish to English: "
+PREFIX = "Normalize this Singlish into natural English: "
 MAX_NEW_TOKENS = 128
 
 
