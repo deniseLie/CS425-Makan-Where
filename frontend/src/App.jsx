@@ -86,7 +86,10 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <h1>Makan Where? <span aria-hidden="true">🍜</span></h1>
+        <h1 className="brand">
+          <img src="/logo.svg" alt="" width="40" height="40" />
+          Makan <span className="accent">Where?</span>
+        </h1>
         <div className="badges">
           {components && ['normalizer', 'style', 'tracker', 'generator'].map((c) => (
             <span key={c} className={`badge ${components[c].impl}`} title={components[c].model || 'local stub'}>
