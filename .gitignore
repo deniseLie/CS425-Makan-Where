@@ -38,3 +38,6 @@ wandb/
 # frontend
 frontend/node_modules/
 frontend/dist/
+
+# recommender caches (fitted TF-IDF / embeddings)
+data/master/.cache/

@@ -23,7 +23,7 @@ raw text
   → apply critiques  code: reject / too_far / too_expensive /        (src/policy/critiques.py)
                      not_interested
   → policy.decide    rules: ask or recommend                         (src/policy/rules.py)
-  → recommender      filter + hybrid ranking over places.csv         (src/recommender)
+  → recommender      SQL filter + hybrid ranking over places.csv     (src/recommender)
                      (only when recommending)
   → generate         same Qwen + generator LoRA, task [REPLY], on    (src/generator)
                      the policy action + style tag
@@ -109,7 +109,7 @@ creating a new session).
 | `backend/src/style` | `detect_style(text: str) -> str` | Varidhi | particle/keyword heuristic |
 | `backend/src/tracker` | `track(history: list[Turn], prev: DialogueState) -> TrackerOutput` | Nichole | phrase tables from `values.py` + regex, carries over prev slots |
 | `backend/src/policy` | `decide(state, n_asked, recommender, query_norm="", user_latlon=None) -> PolicyAction`<br>`apply_tracker_output(prev, out) -> DialogueState` | Nichole | real rules (see `rules.py`) |
-| `backend/src/recommender` | `candidates(state, user_latlon=None) -> list[dict]`<br>`rank(state, query_norm, user_latlon, k=3) -> list[RankedPlace]`<br>`load_places()`, `place_names()` | Yuhanna | pandas filter on `data/master/places.csv`, score = rating |
+| `backend/src/recommender` | `candidates(state, user_latlon=None) -> list[dict]`<br>`rank(state, query_norm, user_latlon, k=3) -> list[RankedPlace]`<br>`load_places()`, `place_names()` | Yuhanna | **real**: SQL filter + hybrid ranking (see below); `stub.py` = old rating-only baseline |
 | `backend/src/generator` | `generate(action: PolicyAction, style: str, user_text: str) -> str`<br>`template_reply(action, style)` | Denise | template replies in both styles |
 | `backend/src/pipeline.py` | `MakanSession.step(raw_text) -> (reply, debug)` | Denise | - |
 
@@ -213,14 +213,47 @@ makan-where/
 │   └── requirements-ml.txt    + torch/transformers/peft for MAKAN_*=hf
 ├── frontend/                  React + Vite chat UI with a pipeline-state panel
 ├── training/                  notebooks / scripts that train and push models to the HF Hub
-├── data/                      [TRACK] datasets + master/places.csv (format in data/README.md)
-├── eval/gold/                 hand-labelled test dialogues (format in eval/gold/README.md)
+├── data/                      [TRACK] datasets, master/places.csv + aliases.csv (format in data/README.md)
+├── eval/                      eval_recommender.py; gold/ = hand-labelled test dialogues (format in eval/gold/README.md)
 └── docs/plan.md               project plan
 ```
 
-The recommender reads `data/master/places.csv` (NEA licensed eating establishments; set
-`MAKAN_PLACES_CSV` to use another file). It has no `cuisine`, `halal`, `vegetarian`, `price`,
-`rating` or `setting` values yet (see [data/README.md](data/README.md)), so for now a request with
-a cuisine finds nothing; area and region requests work. The tests run on
-`backend/tests/data/places_sample.csv` instead: 21 made-up places in the same columns, set by
-`backend/tests/conftest.py`.
+### Recommender
+
+`data/master/places.csv` is built by `data/build_places.py` from the NEA licensed eating
+establishments, OpenStreetMap and the MUIS halal list (34,205 places: details and how to add OSM / MUIS / Google data in
+[data/README.md](data/README.md)). Set `MAKAN_PLACES_CSV` to use another file.
+
+1. **Canonical values.** Every slot value goes through the alias table `data/master/aliases.csv`
+   (`kbbq` → `korean`, `amk` → `ang mo kio`, `bugis side` → `downtown core`, `tapau` → `takeaway`,
+   small typos too). It agrees with `values.py` and only adds to it.
+2. **Candidates** (`filters.py`): one parameterized SQL query (in-memory SQLite) built only from
+   filled slots: cuisine, area / region, radius from the user or the area's centre, dietary
+   (halal, vegetarian, no beef), setting (`aircon` keeps places whose aircon is unknown),
+   opening hours for `time` (unknown hours are kept), budget cap, excluded places.
+3. **Ranking** (`ranking.py`): `score = 0.35·content + 0.20·soft + 0.30·quality + 0.15·distance`
+   - content: TF-IDF (words + character n-grams) similarity between the request (normalized text
+     + slot values + alias expansions) and the place's name / cuisine / tags / description.
+     `MAKAN_RECOMMENDER_CONTENT=embed` switches to sentence-transformer embeddings.
+   - soft: partial credit for budget (`<=N`: share of the price band under N; `cheap` / `atas`:
+     cheaper / pricier is better), aircon and opening hours when known.
+   - quality: Bayesian-averaged rating (prior of 50 reviews at the catalogue mean).
+   - distance: `exp(-km)` from the user or the area's centre.
+   The top 3 never repeats a name or a building (no three stalls of one hawker centre).
+4. `recommender.warm_up()` loads everything up front (first fit ~3 s, cached after that).
+
+Evaluate against the gold dialogues (P@K, nDCG@K, hit@K, hard-constraint violation rate, plus
+ablations of each score part and the rating-only stub):
+
+```bash
+python eval/eval_recommender.py --k 3 --ablations
+```
+
+Data still missing (see data/README.md): ratings / real prices (Google), and cuisine for most
+hawker stalls. Cuisine is known for 4,194 places and opening hours for 1,828 (OSM); halal for
+1,247 (MUIS list; partial coverage). Prices are per-setting
+estimates for now and the reply marks them "(est.)".
+
+The tests run on `backend/tests/data/places_sample.csv` instead: 21 made-up places in the same
+columns, set by `backend/tests/conftest.py`. `tests/test_recommender.py` also checks the real
+places.csv, including a randomized hard-constraint check.

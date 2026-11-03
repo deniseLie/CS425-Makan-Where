@@ -1,0 +1,481 @@
+slot,alias,canonical,lat,lon,note
+cuisine,chinese,chinese,,,laksa follows values.py (chinese)
+cuisine,cantonese,chinese,,,laksa follows values.py (chinese)
+cuisine,teochew,chinese,,,laksa follows values.py (chinese)
+cuisine,hokkien,chinese,,,laksa follows values.py (chinese)
+cuisine,hainanese,chinese,,,laksa follows values.py (chinese)
+cuisine,hakka,chinese,,,laksa follows values.py (chinese)
+cuisine,sichuan,chinese,,,laksa follows values.py (chinese)
+cuisine,szechuan,chinese,,,laksa follows values.py (chinese)
+cuisine,shanghainese,chinese,,,laksa follows values.py (chinese)
+cuisine,taiwanese,chinese,,,laksa follows values.py (chinese)
+cuisine,chicken rice,chinese,,,laksa follows values.py (chinese)
+cuisine,chiken rice,chinese,,,laksa follows values.py (chinese)
+cuisine,chix rice,chinese,,,laksa follows values.py (chinese)
+cuisine,hainanese chicken rice,chinese,,,laksa follows values.py (chinese)
+cuisine,char siew rice,chinese,,,laksa follows values.py (chinese)
+cuisine,char siu,chinese,,,laksa follows values.py (chinese)
+cuisine,roast meat,chinese,,,laksa follows values.py (chinese)
+cuisine,siew yoke,chinese,,,laksa follows values.py (chinese)
+cuisine,duck rice,chinese,,,laksa follows values.py (chinese)
+cuisine,roast duck,chinese,,,laksa follows values.py (chinese)
+cuisine,bak kut teh,chinese,,,laksa follows values.py (chinese)
+cuisine,bkt,chinese,,,laksa follows values.py (chinese)
+cuisine,char kway teow,chinese,,,laksa follows values.py (chinese)
+cuisine,char kuey teow,chinese,,,laksa follows values.py (chinese)
+cuisine,ckt,chinese,,,laksa follows values.py (chinese)
+cuisine,fried kway teow,chinese,,,laksa follows values.py (chinese)
+cuisine,hokkien mee,chinese,,,laksa follows values.py (chinese)
+cuisine,hokkien prawn mee,chinese,,,laksa follows values.py (chinese)
+cuisine,prawn mee,chinese,,,laksa follows values.py (chinese)
+cuisine,har mee,chinese,,,laksa follows values.py (chinese)
+cuisine,bak chor mee,chinese,,,laksa follows values.py (chinese)
+cuisine,bcm,chinese,,,laksa follows values.py (chinese)
+cuisine,minced meat noodles,chinese,,,laksa follows values.py (chinese)
+cuisine,wanton mee,chinese,,,laksa follows values.py (chinese)
+cuisine,wonton mee,chinese,,,laksa follows values.py (chinese)
+cuisine,wan tan mee,chinese,,,laksa follows values.py (chinese)
+cuisine,fishball noodles,chinese,,,laksa follows values.py (chinese)
+cuisine,fishball mee,chinese,,,laksa follows values.py (chinese)
+cuisine,kway chap,chinese,,,laksa follows values.py (chinese)
+cuisine,carrot cake,chinese,,,laksa follows values.py (chinese)
+cuisine,chai tow kway,chinese,,,laksa follows values.py (chinese)
+cuisine,chye tow kway,chinese,,,laksa follows values.py (chinese)
+cuisine,oyster omelette,chinese,,,laksa follows values.py (chinese)
+cuisine,orh luak,chinese,,,laksa follows values.py (chinese)
+cuisine,orh jian,chinese,,,laksa follows values.py (chinese)
+cuisine,economic rice,chinese,,,laksa follows values.py (chinese)
+cuisine,cai png,chinese,,,laksa follows values.py (chinese)
+cuisine,chap chye png,chinese,,,laksa follows values.py (chinese)
+cuisine,yong tau foo,chinese,,,laksa follows values.py (chinese)
+cuisine,ytf,chinese,,,laksa follows values.py (chinese)
+cuisine,dim sum,chinese,,,laksa follows values.py (chinese)
+cuisine,dimsum,chinese,,,laksa follows values.py (chinese)
+cuisine,zi char,chinese,,,laksa follows values.py (chinese)
+cuisine,zichar,chinese,,,laksa follows values.py (chinese)
+cuisine,tze char,chinese,,,laksa follows values.py (chinese)
+cuisine,cze char,chinese,,,laksa follows values.py (chinese)
+cuisine,zhi char,chinese,,,laksa follows values.py (chinese)
+cuisine,hotpot,chinese,,,laksa follows values.py (chinese)
+cuisine,hot pot,chinese,,,laksa follows values.py (chinese)
+cuisine,steamboat,chinese,,,laksa follows values.py (chinese)
+cuisine,mala,chinese,,,laksa follows values.py (chinese)
+cuisine,mala xiang guo,chinese,,,laksa follows values.py (chinese)
+cuisine,mala hotpot,chinese,,,laksa follows values.py (chinese)
+cuisine,xiao long bao,chinese,,,laksa follows values.py (chinese)
+cuisine,xlb,chinese,,,laksa follows values.py (chinese)
+cuisine,dumpling,chinese,,,laksa follows values.py (chinese)
+cuisine,dumplings,chinese,,,laksa follows values.py (chinese)
+cuisine,claypot rice,chinese,,,laksa follows values.py (chinese)
+cuisine,fish soup,chinese,,,laksa follows values.py (chinese)
+cuisine,sliced fish soup,chinese,,,laksa follows values.py (chinese)
+cuisine,laksa,chinese,,,laksa follows values.py (chinese)
+cuisine,chee cheong fun,chinese,,,laksa follows values.py (chinese)
+cuisine,lor mee,chinese,,,laksa follows values.py (chinese)
+cuisine,porridge,chinese,,,laksa follows values.py (chinese)
+cuisine,congee,chinese,,,laksa follows values.py (chinese)
+cuisine,zhou,chinese,,,laksa follows values.py (chinese)
+cuisine,malay,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,nasi lemak,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,nasi lemah,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,nasik lemak,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,nasi padang,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,padang,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,mee rebus,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,mee siam,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,mee soto,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,soto ayam,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,lontong,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,satay,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,sate,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,nasi goreng,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,mee goreng,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,mi goreng,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,ayam penyet,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,penyet,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,rendang,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,roti john,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,mee bandung,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,indonesian,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,nasi ayam,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,ayam goreng,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,malay food,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,malay rice,malay,,,indonesian dishes mapped to malay (closest cuisine the place list uses)
+cuisine,indian,indian,,,
+cuisine,roti prata,indian,,,
+cuisine,prata,indian,,,
+cuisine,pratha,indian,,,
+cuisine,roti canai,indian,,,
+cuisine,parotta,indian,,,
+cuisine,biryani,indian,,,
+cuisine,briyani,indian,,,
+cuisine,biriyani,indian,,,
+cuisine,nasi briyani,indian,,,
+cuisine,nasi biryani,indian,,,
+cuisine,murtabak,indian,,,
+cuisine,martabak,indian,,,
+cuisine,thosai,indian,,,
+cuisine,dosa,indian,,,
+cuisine,tosai,indian,,,
+cuisine,masala dosa,indian,,,
+cuisine,naan,indian,,,
+cuisine,tandoori,indian,,,
+cuisine,tandoori chicken,indian,,,
+cuisine,butter chicken,indian,,,
+cuisine,chicken tikka,indian,,,
+cuisine,banana leaf,indian,,,
+cuisine,banana leaf rice,indian,,,
+cuisine,mamak,indian,,,
+cuisine,maggi goreng,indian,,,
+cuisine,fish head curry,indian,,,
+cuisine,north indian,indian,,,
+cuisine,south indian,indian,,,
+cuisine,chettinad,indian,,,
+cuisine,teh tarik,indian,,,
+cuisine,korean,korean,,,
+cuisine,kbbq,korean,,,
+cuisine,k bbq,korean,,,
+cuisine,k-bbq,korean,,,
+cuisine,korean bbq,korean,,,
+cuisine,korean barbecue,korean,,,
+cuisine,kimchi,korean,,,
+cuisine,bibimbap,korean,,,
+cuisine,tteokbokki,korean,,,
+cuisine,topokki,korean,,,
+cuisine,ddukbokki,korean,,,
+cuisine,jjigae,korean,,,
+cuisine,kimchi jjigae,korean,,,
+cuisine,army stew,korean,,,
+cuisine,budae jjigae,korean,,,
+cuisine,korean fried chicken,korean,,,
+cuisine,kfc korean,korean,,,
+cuisine,jjajangmyeon,korean,,,
+cuisine,samgyeopsal,korean,,,
+cuisine,korea,korean,,,
+cuisine,japanese,japanese,,,
+cuisine,jap,japanese,,,
+cuisine,jap food,japanese,,,
+cuisine,sushi,japanese,,,
+cuisine,sashimi,japanese,,,
+cuisine,ramen,japanese,,,
+cuisine,udon,japanese,,,
+cuisine,soba,japanese,,,
+cuisine,donburi,japanese,,,
+cuisine,katsu,japanese,,,
+cuisine,tonkatsu,japanese,,,
+cuisine,katsudon,japanese,,,
+cuisine,gyukatsu,japanese,,,
+cuisine,gyudon,japanese,,,
+cuisine,yakiniku,japanese,,,
+cuisine,yakitori,japanese,,,
+cuisine,omakase,japanese,,,
+cuisine,izakaya,japanese,,,
+cuisine,teppanyaki,japanese,,,
+cuisine,tempura,japanese,,,
+cuisine,unagi,japanese,,,
+cuisine,okonomiyaki,japanese,,,
+cuisine,takoyaki,japanese,,,
+cuisine,japan,japanese,,,
+cuisine,thai,thai,,,
+cuisine,tom yum,thai,,,
+cuisine,tomyum,thai,,,
+cuisine,tom yam,thai,,,
+cuisine,pad thai,thai,,,
+cuisine,mookata,thai,,,
+cuisine,moo kata,thai,,,
+cuisine,mu kata,thai,,,
+cuisine,thai bbq,thai,,,
+cuisine,green curry,thai,,,
+cuisine,boat noodles,thai,,,
+cuisine,basil pork,thai,,,
+cuisine,pad kra pao,thai,,,
+cuisine,thai food,thai,,,
+cuisine,som tam,thai,,,
+cuisine,mango sticky rice,thai,,,
+cuisine,vietnamese,vietnamese,,,
+cuisine,viet,vietnamese,,,
+cuisine,pho,vietnamese,,,
+cuisine,banh mi,vietnamese,,,
+cuisine,bun cha,vietnamese,,,
+cuisine,vietnam,vietnamese,,,
+cuisine,western,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,western food,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,burger,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,burgers,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,pasta,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,pizza,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,steak,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,steakhouse,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,fish and chips,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,fish & chips,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,chicken chop,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,lamb chop,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,italian,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,french,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,american,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,mexican,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,spanish,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,tapas,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,brunch,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,fast food,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,sandwich,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,salad,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+cuisine,grill,western,,,european / american / mexican mapped to western (the place list's word); content similarity keeps the detail
+area,downtown core,downtown core,,,
+area,bukit merah,bukit merah,,,
+area,bishan,bishan,1.351,103.8485,
+area,toa payoh,toa payoh,1.3327,103.8474,
+area,geylang,geylang,,,
+area,kallang,kallang,1.3115,103.8714,
+area,bukit timah,bukit timah,1.3294,103.8021,
+area,tanglin,tanglin,,,
+area,outram,outram,,,
+area,river valley,river valley,,,
+area,queenstown,queenstown,1.2945,103.806,
+area,novena,novena,1.3204,103.8438,
+area,marine parade,marine parade,1.303,103.907,
+area,tampines,tampines,1.354,103.943,
+area,bedok,bedok,1.324,103.93,
+area,pasir ris,pasir ris,1.373,103.9493,
+area,clementi,clementi,1.3151,103.7652,
+area,bukit batok,bukit batok,1.349,103.7496,
+area,jurong west,jurong west,,,
+area,jurong east,jurong east,1.3331,103.7422,
+area,choa chu kang,choa chu kang,1.3854,103.7443,
+area,bukit panjang,bukit panjang,1.3784,103.7621,
+area,sembawang,sembawang,1.4491,103.8201,
+area,yishun,yishun,1.4295,103.835,
+area,woodlands,woodlands,1.437,103.7865,
+area,hougang,hougang,1.3713,103.8923,
+area,ang mo kio,ang mo kio,1.37,103.8495,
+area,serangoon,serangoon,1.3498,103.8737,
+area,sengkang,sengkang,1.3917,103.8954,
+area,punggol,punggol,1.4052,103.9024,
+area,central,central,,,
+area,east,east,,,
+area,west,west,,,
+area,north,north,,,
+area,north-east,north-east,,,
+area,northeast,north-east,,,
+area,north east,north-east,,,
+area,ne,north-east,,,
+area,north-east side,north-east,,,
+area,east side,east,,,
+area,eastside,east,,,
+area,west side,west,,,
+area,westside,west,,,
+area,north side,north,,,
+area,northside,north,,,
+area,central area,central,,,
+area,amk,ang mo kio,1.37,103.8495,
+area,tpy,toa payoh,1.3327,103.8474,
+area,cck,choa chu kang,1.3854,103.7443,
+area,jw,jurong west,,,
+area,je,jurong east,1.3331,103.7422,
+area,bt batok,bukit batok,,,
+area,bb,bukit batok,,,
+area,bt panjang,bukit panjang,,,
+area,bp,bukit panjang,,,
+area,bt timah,bukit timah,,,
+area,bt merah,bukit merah,,,
+area,downtown,downtown core,,,'town' in Singlish = the city centre
+area,cbd,downtown core,1.281,103.851,'town' in Singlish = the city centre
+area,town,downtown core,1.2931,103.852,'town' in Singlish = the city centre
+area,city,downtown core,,,'town' in Singlish = the city centre
+area,bugis,downtown core,1.3008,103.8559,most common NEA planning area within 500 m
+area,bugis junction,downtown core,1.2995,103.8555,most common NEA planning area within 500 m
+area,smu,downtown core,1.2966,103.8502,most common NEA planning area within 500 m
+area,city hall,downtown core,1.2931,103.852,most common NEA planning area within 500 m
+area,raffles place,downtown core,1.284,103.8515,most common NEA planning area within 500 m
+area,marina bay,downtown core,1.2834,103.8607,most common NEA planning area within 500 m
+area,mbs,downtown core,1.2834,103.8607,most common NEA planning area within 500 m
+area,clarke quay,downtown core,1.2884,103.8463,values.py; NEA rows within 500 m are mostly outram
+area,boat quay,downtown core,1.287,103.8495,most common NEA planning area within 500 m
+area,chinatown,outram,1.2844,103.8443,most common NEA planning area within 500 m
+area,tanjong pagar,downtown core,1.2765,103.8455,most common NEA planning area within 500 m
+area,outram park,outram,1.2803,103.8395,most common NEA planning area within 500 m
+area,tiong bahru,bukit merah,1.2861,103.827,most common NEA planning area within 500 m
+area,redhill,bukit merah,1.2896,103.8168,most common NEA planning area within 500 m
+area,harbourfront,bukit merah,1.2653,103.822,most common NEA planning area within 500 m
+area,vivocity,bukit merah,1.2644,103.8223,most common NEA planning area within 500 m
+area,vivo,bukit merah,1.2644,103.8223,most common NEA planning area within 500 m
+area,orchard,river valley,1.304,103.8318,values.py; NEA has almost no Orchard rows
+area,somerset,river valley,1.3006,103.8389,most common NEA planning area within 500 m
+area,dhoby ghaut,downtown core,1.299,103.8456,most common area within 1 km
+area,little india,kallang,1.3066,103.8492,most common area within 1 km
+area,tekka,kallang,1.3061,103.8507,most common area within 1 km
+area,farrer park,kallang,1.3124,103.8543,most common NEA planning area within 500 m
+area,lavender,kallang,1.3073,103.863,most common NEA planning area within 500 m
+area,kampong glam,kallang,1.3022,103.859,most common NEA planning area within 500 m
+area,arab street,kallang,1.3025,103.8585,most common NEA planning area within 500 m
+area,haji lane,downtown core,1.3007,103.859,most common NEA planning area within 500 m
+area,newton,novena,1.3138,103.838,most common area within 1 km
+area,holland village,queenstown,1.3117,103.7961,most common NEA planning area within 500 m
+area,holland v,queenstown,1.3117,103.7961,most common NEA planning area within 500 m
+area,buona vista,queenstown,1.3072,103.79,most common NEA planning area within 500 m
+area,one-north,queenstown,1.2996,103.7873,most common NEA planning area within 500 m
+area,nus,queenstown,1.2966,103.7764,most common NEA planning area within 500 m
+area,kent ridge,queenstown,1.2934,103.7846,most common NEA planning area within 500 m
+area,jem,jurong east,1.3333,103.743,most common NEA planning area within 500 m
+area,westgate,jurong east,1.3343,103.7425,most common NEA planning area within 500 m
+area,jurong,jurong east,1.3331,103.7422,most common NEA planning area within 500 m
+area,jurong point,jurong west,1.3397,103.7066,most common NEA planning area within 500 m
+area,boon lay,jurong west,1.3386,103.7058,most common NEA planning area within 500 m
+area,ntu,jurong west,1.3483,103.6831,most common area within 1.5 km
+area,causeway point,woodlands,1.436,103.786,most common NEA planning area within 500 m
+area,northpoint,yishun,1.429,103.836,most common NEA planning area within 500 m
+area,admiralty,woodlands,1.4406,103.8009,most common NEA planning area within 500 m
+area,amk hub,ang mo kio,1.3692,103.8484,most common NEA planning area within 500 m
+area,nex,serangoon,1.3507,103.872,most common NEA planning area within 500 m
+area,paya lebar,geylang,1.3177,103.8926,most common NEA planning area within 500 m
+area,plq,geylang,1.3177,103.8926,most common NEA planning area within 500 m
+area,aljunied,geylang,1.3164,103.8829,most common NEA planning area within 500 m
+area,eunos,geylang,1.3197,103.903,most common NEA planning area within 500 m
+area,kembangan,bedok,1.321,103.913,most common NEA planning area within 500 m
+area,tampines hub,tampines,1.353,103.94,most common NEA planning area within 500 m
+area,changi,pasir ris,1.3644,103.9915,values.py; nearest NEA rows
+area,changi airport,pasir ris,1.3644,103.9915,nearest NEA rows
+area,jewel,pasir ris,1.3602,103.9897,nearest NEA rows
+area,simei,tampines,1.3432,103.9533,most common NEA planning area within 500 m
+area,tanah merah,bedok,1.3272,103.9465,most common NEA planning area within 500 m
+area,east coast,marine parade,1.3008,103.9122,most common area within 1 km
+area,katong,marine parade,1.305,103.905,most common NEA planning area within 500 m
+area,joo chiat,geylang,1.3126,103.9015,most common NEA planning area within 500 m
+area,stadium,kallang,1.3029,103.8753,most common NEA planning area within 500 m
+area,macpherson,geylang,1.3266,103.89,most common NEA planning area within 500 m
+area,potong pasir,toa payoh,1.3313,103.8688,most common NEA planning area within 500 m
+area,braddell,toa payoh,1.3405,103.8468,most common NEA planning area within 500 m
+area,botanic gardens,novena,1.3224,103.8154,most common NEA planning area within 500 m
+area,beauty world,bukit timah,1.3412,103.7759,most common NEA planning area within 500 m
+area,dover,queenstown,1.3114,103.7786,most common NEA planning area within 500 m
+area,commonwealth,queenstown,1.3025,103.7983,most common NEA planning area within 500 m
+area,telok blangah,bukit merah,1.2707,103.8097,most common NEA planning area within 500 m
+area,maxwell,outram,1.2803,103.8448,most common NEA planning area within 500 m
+area,lau pa sat,downtown core,1.2806,103.8504,most common NEA planning area within 500 m
+area,golden mile,kallang,1.3029,103.864,most common NEA planning area within 500 m
+area,old airport road,geylang,1.3082,103.8857,most common NEA planning area within 500 m
+area,east coast lagoon,bedok,1.3065,103.9346,most common NEA planning area within 500 m
+area,adam road,novena,1.3243,103.8141,most common NEA planning area within 500 m
+area,chomp chomp,serangoon,1.3642,103.8664,most common NEA planning area within 500 m
+area,geylang serai,geylang,1.3166,103.8984,most common NEA planning area within 500 m
+area,upper thomson,bishan,1.354,103.833,most common NEA planning area within 500 m
+area,thomson,bishan,1.354,103.833,most common NEA planning area within 500 m
+area,dempsey,tanglin,1.305,103.81,most common NEA planning area within 500 m
+area,robertson quay,outram,1.2905,103.838,most common NEA planning area within 500 m
+area,bras basah,downtown core,1.2967,103.8506,most common NEA planning area within 500 m
+area,suntec,downtown core,1.295,103.859,most common NEA planning area within 500 m
+area,esplanade,downtown core,1.2897,103.8556,most common NEA planning area within 500 m
+budget,cheap,cheap,,,
+budget,cheap cheap,cheap,,,
+budget,cheapo,cheap,,,
+budget,affordable,cheap,,,
+budget,budget,cheap,,,
+budget,not ex,cheap,,,
+budget,not expensive,cheap,,,
+budget,student budget,cheap,,,
+budget,inexpensive,cheap,,,
+budget,value for money,cheap,,,
+budget,worth it,cheap,,,
+budget,low budget,cheap,,,
+budget,atas,pricey,,,
+budget,fancy,pricey,,,
+budget,high end,pricey,,,
+budget,high-end,pricey,,,
+budget,expensive,pricey,,,
+budget,ex,pricey,,,
+budget,splurge,pricey,,,
+budget,atas one,pricey,,,
+budget,upscale,pricey,,,
+budget,fine dining,pricey,,,
+budget,treat,pricey,,,
+dietary,halal,halal,,,muslim-friendly mapped to the stricter halal filter on purpose
+dietary,muslim,halal,,,muslim-friendly mapped to the stricter halal filter on purpose
+dietary,muslim friendly,halal,,,muslim-friendly mapped to the stricter halal filter on purpose
+dietary,muslim-friendly,halal,,,muslim-friendly mapped to the stricter halal filter on purpose
+dietary,halal certified,halal,,,muslim-friendly mapped to the stricter halal filter on purpose
+dietary,no pork,halal,,,muslim-friendly mapped to the stricter halal filter on purpose
+dietary,no pork no lard,halal,,,muslim-friendly mapped to the stricter halal filter on purpose
+dietary,no lard,halal,,,muslim-friendly mapped to the stricter halal filter on purpose
+dietary,vegetarian,vegetarian,,,
+dietary,veg,vegetarian,,,
+dietary,veggie,vegetarian,,,
+dietary,vegan,vegetarian,,,
+dietary,meatless,vegetarian,,,
+dietary,plant based,vegetarian,,,
+dietary,plant-based,vegetarian,,,
+dietary,su shi,vegetarian,,,
+dietary,chay,vegetarian,,,
+dietary,no meat,vegetarian,,,
+dietary,no beef,no beef,,,
+dietary,dont eat beef,no beef,,,
+dietary,don't eat beef,no beef,,,
+dietary,cannot eat beef,no beef,,,
+dietary,beef free,no beef,,,
+setting,hawker,hawker,,,
+setting,hawker centre,hawker,,,
+setting,hawker center,hawker,,,
+setting,food centre,hawker,,,
+setting,food center,hawker,,,
+setting,kopitiam,hawker,,,
+setting,kopi tiam,hawker,,,
+setting,coffeeshop,hawker,,,
+setting,coffee shop,hawker,,,
+setting,market,hawker,,,
+setting,aircon,aircon,,,
+setting,air con,aircon,,,
+setting,air-con,aircon,,,
+setting,aircond,aircon,,,
+setting,air conditioned,aircon,,,
+setting,air-conditioned,aircon,,,
+setting,indoor,aircon,,,
+setting,cool place,aircon,,,
+setting,got aircon,aircon,,,
+setting,cafe,cafe,,,
+setting,café,cafe,,,
+setting,kafe,cafe,,,
+setting,coffee place,cafe,,,
+setting,cafe hopping,cafe,,,
+setting,food court,food court,,,
+setting,foodcourt,food court,,,
+setting,koufu,food court,,,
+setting,food republic,food court,,,
+setting,food junction,food court,,,
+setting,kopitiam food court,food court,,,
+setting,restaurant,restaurant,,,
+setting,restoran,restaurant,,,
+setting,sit down,restaurant,,,
+setting,sit-down,restaurant,,,
+setting,takeaway,takeaway,,,
+setting,take away,takeaway,,,
+setting,takeout,takeaway,,,
+setting,tapau,takeaway,,,
+setting,da bao,takeaway,,,
+setting,dabao,takeaway,,,
+setting,ta pau,takeaway,,,
+time,late night,late night,,,
+time,supper,late night,,,
+time,midnight,late night,,,
+time,late,late night,,,
+time,night owl,late night,,,
+time,after 10,late night,,,
+time,24 hours,late night,,,
+time,24h,late night,,,
+time,breakfast,breakfast,,,
+time,brekkie,breakfast,,,
+time,morning,breakfast,,,
+time,brunch time,breakfast,,,
+time,lunch,lunch,,,
+time,lunchtime,lunch,,,
+time,lunch time,lunch,,,
+time,afternoon,lunch,,,
+time,dinner,dinner,,,
+time,dinnertime,dinner,,,
+time,dinner time,dinner,,,
+time,evening,dinner,,,
+time,tonight,dinner,,,
+time,now,now,,,
+time,right now,now,,,
+time,open now,now,,,
+time,currently,now,,,
+time,rn,now,,,
+time,late_night,late night,,,values.py

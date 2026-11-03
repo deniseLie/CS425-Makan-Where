@@ -1,22 +1,8 @@
 #!/usr/bin/env python3
 """
 Convert NEA licensed eating establishments (NEA_Establishments.xlsx) into the
-recommender's place database, data/master/places.csv.
-
-Usage:
-    pip install pandas openpyxl
-    python data/convert_nea_places.py --xlsx data/raw/NEA_Establishments.xlsx --out data/master/places.csv
-
-This is a plain 1:1 conversion: every NEA row becomes one place and every value is
-copied as it is in the spreadsheet. Nothing is dropped, deduplicated or cleaned
-(suggested deletions are listed in data/README.md). Columns NEA has no data for are
-left blank.
-
-Output columns follow the recommender's schema, then the remaining NEA columns:
-
-    place_id,name,lat,lon,area,cuisine,halal,vegetarian,setting,
-    price_min,price_max,rating,n_reviews,description,
-    region,address,postal_code,nea_type,licence_number,mrt_exits_500m,bus_stops_500m
+recommender's raw place list, data/master/places_nea.csv
+(data/build_places.py then cleans and enriches it into data/master/places.csv).
 """
 
 import argparse
@@ -82,7 +68,7 @@ def main():
     parser.add_argument(
         "--out",
         type=Path,
-        default=Path("data/master/places.csv"),
+        default=Path("data/master/places_nea.csv"),
         help="Output CSV",
     )
     args = parser.parse_args()

@@ -38,6 +38,12 @@ _load_dotenv(ROOT / ".env")
 
 DATA_DIR = Path(os.getenv("MAKAN_DATA_DIR", ROOT / "data"))
 PLACES_CSV = Path(os.getenv("MAKAN_PLACES_CSV", DATA_DIR / "master" / "places.csv"))
+ALIASES_CSV = Path(os.getenv("MAKAN_ALIASES_CSV", DATA_DIR / "master" / "aliases.csv"))
+
+# Recommender content similarity: "tfidf" (default, no model download) or "embed"
+# (sentence-transformers model MAKAN_EMBED_MODEL; embeddings cached next to places.csv).
+RECOMMENDER_CONTENT = os.getenv("MAKAN_RECOMMENDER_CONTENT", "tfidf").strip().lower()
+EMBED_MODEL = os.getenv("MAKAN_EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 FRONTEND_DIST = ROOT / "frontend" / "dist"
 CORS_ORIGINS = [o.strip() for o in os.getenv("MAKAN_CORS_ORIGINS", "").split(",") if o.strip()]
 

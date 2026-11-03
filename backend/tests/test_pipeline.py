@@ -34,8 +34,14 @@ def test_three_turn_conversation(session):
     assert d3["state"]["radius_km"] == 1.0
     assert d3["state"]["slots"]["cuisine"] == "korean"  # carried over
     third_ids = [p["place_id"] for p in d3["action"]["places"]]
-    assert third_ids and third_ids != first_ids
-    assert "P004" in first_ids and "P004" not in third_ids  # the 1.5 km place drops out
+    assert third_ids
+    # the 1.2 km place drops out of the search; the hybrid ranker already preferred the
+    # nearer ones, so the top 3 can stay the same
+    from src import recommender
+    before = {c["place_id"] for c in recommender.candidates(DialogueState.from_dict(d2["state"]))}
+    after = {c["place_id"] for c in recommender.candidates(DialogueState.from_dict(d3["state"]))}
+    assert "P004" in before and "P004" not in after and "P004" not in third_ids
+    assert set(third_ids) <= after
 
     lines = session.log_path.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 3
