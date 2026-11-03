@@ -141,14 +141,23 @@ only choose it with environment variables (see [`backend/src/config.py`](backend
 | tracker | `MAKAN_TRACKER=hf` | `MAKAN_LORA_ADAPTER` | LoRA adapter (+ tokenizer) for `MAKAN_BASE_LLM` |
 | generator | `MAKAN_GENERATOR=hf` | `MAKAN_LORA_ADAPTER` | same adapter, `[REPLY]` task |
 
-`MAKAN_BASE_LLM` defaults to `Qwen/Qwen2.5-1.5B-Instruct`. Private repos need `HF_TOKEN`.
-Install the model packages with `pip install -r backend/requirements-ml.txt`. Example:
+`MAKAN_BASE_LLM` defaults to `Qwen/Qwen2.5-1.5B-Instruct` and `MAKAN_LORA_ADAPTER` to the team's
+adapter, [`makan-where-cs425/makan-qwen-lora`](https://huggingface.co/makan-where-cs425/makan-qwen-lora).
+The repos are private, so you need `HF_TOKEN`: a read token from a member of the
+`makan-where-cs425` organisation. Install the model packages with
+`pip install -r backend/requirements-ml.txt`.
+
+Put the settings in a `.env` file at the repo root (gitignored, never commit it). The backend
+reads its `MAKAN_*` and `HF_*` lines on start; a variable set in the shell wins. The tests always
+use the stubs. The current adapter was trained on `[REPLY]` only, so keep the tracker on its stub:
 
 ```bash
-# PowerShell: $env:MAKAN_NORMALIZER="hf"; $env:MAKAN_NORMALIZER_MODEL="our-team/makan-normalizer"
-export MAKAN_NORMALIZER=hf MAKAN_NORMALIZER_MODEL=our-team/makan-normalizer
-cd backend && uvicorn src.api:app --port 8000
+HF_TOKEN=hf_...
+MAKAN_GENERATOR=hf
 ```
+
+Then start the backend as usual (`cd backend && uvicorn src.api:app --port 8000`, or
+`python -m src.pipeline`). The first start downloads Qwen (~3 GB) and the adapter.
 
 The UI header shows `stub` / `hf` for each component so you can see what is running.
 

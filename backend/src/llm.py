@@ -22,8 +22,10 @@ def _load():
 
     adapter = model_id("tracker")
     tok = AutoTokenizer.from_pretrained(adapter)  # adapter repo ships the tokenizer used in training
-    dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
-    base = AutoModelForCausalLM.from_pretrained(BASE_LLM, torch_dtype=dtype, device_map="auto")
+    # bfloat16 on CPU too: half the RAM of float32 (~3 GB). No device_map on CPU: "auto" offloads
+    # layers to disk when RAM is short, and the adapter then loads onto them as a silent no-op.
+    device_map = "auto" if torch.cuda.is_available() else None
+    base = AutoModelForCausalLM.from_pretrained(BASE_LLM, torch_dtype=torch.bfloat16, device_map=device_map)
     model = PeftModel.from_pretrained(base, adapter).eval()
     return tok, model
 
@@ -33,9 +35,10 @@ def complete(prompt: str, max_new_tokens: int = MAX_NEW_TOKENS) -> str:
     import torch
 
     tok, model = _load()
-    ids = tok.apply_chat_template([{"role": "user", "content": prompt}], add_generation_prompt=True,
-                                  return_tensors="pt").to(model.device)
+    # return_dict=True: the transformers 5 default, asked for explicitly so 4.x behaves the same
+    enc = tok.apply_chat_template([{"role": "user", "content": prompt}], add_generation_prompt=True,
+                                  return_tensors="pt", return_dict=True).to(model.device)
     with torch.no_grad():
-        out = model.generate(ids, max_new_tokens=max_new_tokens, do_sample=False,
+        out = model.generate(**enc, max_new_tokens=max_new_tokens, do_sample=False,
                              pad_token_id=tok.pad_token_id or tok.eos_token_id)
-    return tok.decode(out[0, ids.shape[1]:], skip_special_tokens=True).strip()
+    return tok.decode(out[0, enc["input_ids"].shape[1]:], skip_special_tokens=True).strip()
