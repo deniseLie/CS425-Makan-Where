@@ -27,4 +27,6 @@ ablation. Never commit weights or `HF_TOKEN`; push to the Hub instead (see the m
 
 | notebook | trains | notes |
 |---|---|---|
+| `qwen_track.ipynb` | runs `qwen_track.py` in Colab / Jupyter | Colab T4 (secrets `HF_TOKEN`, `GITHUB_TOKEN`), checkpoints on Drive. `QUICK_TRIAL = True` for a few-minute check first; separate cells for the test scores and the Hub push. |
+| `qwen_track.py` | Qwen LoRA for the tracker (`[TRACK]`), as a script | `python training/qwen_track.py [--push]` from a checkout on a GPU; `--eval-only <adapter> --split test` for the final MultiWOZ numbers. Reports joint / slot / per-slot accuracy and slot F1 per source. |
 | `qwen_denise.ipynb` | Qwen LoRA: `TASK = "reply"` (generator), `"track"` (tracker) or `"mix"` (shared-adapter ablation) | GPU cluster (run from `training/`, `HF_TOKEN` exported) or Colab (secrets `HF_TOKEN`, `GITHUB_TOKEN`). Evaluates replies with `generator.checks.check_reply` and tracking with joint / slot accuracy, then pushes adapter + tokenizer. |
