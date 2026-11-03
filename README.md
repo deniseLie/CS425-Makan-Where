@@ -146,16 +146,19 @@ and each adapter the first time its component runs. `MAKAN_BASE_LLM` defaults to
 `Qwen/Qwen2.5-1.5B-Instruct`, and the adapters to the team's
 [`makan-where-cs425/makan-qwen-track`](https://huggingface.co/makan-where-cs425/makan-qwen-track) and
 [`makan-where-cs425/makan-qwen-reply`](https://huggingface.co/makan-where-cs425/makan-qwen-reply).
-The repos are private, so you need `HF_TOKEN`: a read token from a member of the
+The normalizer defaults to
+[`makan-where-cs425/makan-flan-normalizer`](https://huggingface.co/makan-where-cs425/makan-flan-normalizer)
+(Flan-T5-base, ~1 GB, public). The Qwen repos are private, so you need `HF_TOKEN`: a read token from a member of the
 `makan-where-cs425` organisation. Install the model packages with
 `pip install -r backend/requirements-ml.txt`.
 
 Put the settings in a `.env` file at the repo root (gitignored, never commit it). The backend
 reads its `MAKAN_*` and `HF_*` lines on start; a variable set in the shell wins. The tests always
-use the stubs. Only the generator's adapter is trained so far, so keep the tracker on its stub:
+use the stubs. The tracker's adapter is not trained yet, so keep the tracker on its stub:
 
 ```bash
 HF_TOKEN=hf_...
+MAKAN_NORMALIZER=hf
 MAKAN_GENERATOR=hf
 ```
 
