@@ -17,15 +17,15 @@ Paths are under `backend/`.
 raw text
   → normalize        Flan-T5: Singlish → English                     (src/normalizer)
   → detect_style     SingBERT: "singlish" | "english"                (src/style)
-  → track            Qwen2.5-1.5B + LoRA, task [TRACK]: reads the    (src/tracker)
-                     whole dialogue, outputs the FULL slot state as JSON
+  → track            Qwen2.5-1.5B + tracker LoRA, task [TRACK]: the  (src/tracker)
+                     whole dialogue in, the FULL slot state as JSON out
   → translate        code: tracker values → place-list values        (src/tracker/values.py)
   → apply critiques  code: reject / too_far / too_expensive /        (src/policy/critiques.py)
                      not_interested
   → policy.decide    rules: ask or recommend                         (src/policy/rules.py)
   → recommender      filter + hybrid ranking over places.csv         (src/recommender)
                      (only when recommending)
-  → generate         same Qwen + LoRA, task [REPLY], conditioned on  (src/generator)
+  → generate         same Qwen + generator LoRA, task [REPLY], on    (src/generator)
                      the policy action + style tag
   → guardrail        reply names a place not in action.places → template reply
   → reply
@@ -138,18 +138,21 @@ only choose it with environment variables (see [`backend/src/config.py`](backend
 |---|---|---|---|
 | normalizer | `MAKAN_NORMALIZER=hf` | `MAKAN_NORMALIZER_MODEL` | Flan-T5 seq2seq; inputs prefixed with `normalizer.hf.PREFIX` |
 | style | `MAKAN_STYLE=hf` | `MAKAN_STYLE_MODEL` | text classifier with `id2label = {0: "english", 1: "singlish"}` |
-| tracker | `MAKAN_TRACKER=hf` | `MAKAN_LORA_ADAPTER` | LoRA adapter (+ tokenizer) for `MAKAN_BASE_LLM` |
-| generator | `MAKAN_GENERATOR=hf` | `MAKAN_LORA_ADAPTER` | same adapter, `[REPLY]` task |
+| tracker | `MAKAN_TRACKER=hf` | `MAKAN_TRACKER_ADAPTER` | LoRA adapter (+ tokenizer) for `MAKAN_BASE_LLM`, trained on `[TRACK]` |
+| generator | `MAKAN_GENERATOR=hf` | `MAKAN_GENERATOR_ADAPTER` | LoRA adapter (+ tokenizer) for `MAKAN_BASE_LLM`, trained on `[REPLY]` |
 
-`MAKAN_BASE_LLM` defaults to `Qwen/Qwen2.5-1.5B-Instruct` and `MAKAN_LORA_ADAPTER` to the team's
-adapter, [`makan-where-cs425/makan-qwen-lora`](https://huggingface.co/makan-where-cs425/makan-qwen-lora).
+The tracker and generator each have their own adapter on one base model: the base is loaded once,
+and each adapter the first time its component runs. `MAKAN_BASE_LLM` defaults to
+`Qwen/Qwen2.5-1.5B-Instruct`, and the adapters to the team's
+[`makan-where-cs425/makan-qwen-track`](https://huggingface.co/makan-where-cs425/makan-qwen-track) and
+[`makan-where-cs425/makan-qwen-reply`](https://huggingface.co/makan-where-cs425/makan-qwen-reply).
 The repos are private, so you need `HF_TOKEN`: a read token from a member of the
 `makan-where-cs425` organisation. Install the model packages with
 `pip install -r backend/requirements-ml.txt`.
 
 Put the settings in a `.env` file at the repo root (gitignored, never commit it). The backend
 reads its `MAKAN_*` and `HF_*` lines on start; a variable set in the shell wins. The tests always
-use the stubs. The current adapter was trained on `[REPLY]` only, so keep the tracker on its stub:
+use the stubs. Only the generator's adapter is trained so far, so keep the tracker on its stub:
 
 ```bash
 HF_TOKEN=hf_...
@@ -171,8 +174,8 @@ Uploading after training (from a notebook):
 ```python
 model.push_to_hub("our-team/makan-normalizer", private=True)
 tokenizer.push_to_hub("our-team/makan-normalizer", private=True)
-# Qwen: push only the LoRA adapter + tokenizer
-peft_model.push_to_hub("our-team/makan-qwen-lora", private=True)
+# Qwen: push only the LoRA adapter + tokenizer, one repo per task (training/qwen_denise.ipynb does this)
+peft_model.push_to_hub("our-team/makan-qwen-reply", private=True)   # or makan-qwen-track
 ```
 
 Rules when changing a module:
@@ -197,7 +200,7 @@ makan-where/
 │   │   ├── config.py          env vars: stub/hf switches, model repo ids, data paths
 │   │   ├── api.py             FastAPI app (Denise)
 │   │   ├── pipeline.py        one turn end to end (Denise)
-│   │   ├── llm.py             shared Qwen + LoRA loader for tracker/generator
+│   │   ├── llm.py             Qwen loader: one base, the tracker's and generator's LoRA adapters
 │   │   ├── normalizer/  style/    stub.py + hf.py (Varidhi)
 │   │   ├── tracker/     policy/   (Nichole)
 │   │   ├── recommender/           (Yuhanna)

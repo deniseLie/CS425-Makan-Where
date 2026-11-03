@@ -4,11 +4,12 @@ Each model component runs either the local stub or the trained model from the Hu
 
     MAKAN_NORMALIZER=stub|hf   MAKAN_NORMALIZER_MODEL=<hf repo id>    Flan-T5 (Varidhi)
     MAKAN_STYLE=stub|hf        MAKAN_STYLE_MODEL=<hf repo id>         SingBERT (Varidhi)
-    MAKAN_TRACKER=stub|hf      MAKAN_LORA_ADAPTER=<hf repo id>        Qwen + LoRA [TRACK] (Nichole)
-    MAKAN_GENERATOR=stub|hf    MAKAN_LORA_ADAPTER=<hf repo id>        Qwen + LoRA [REPLY] (Denise)
+    MAKAN_TRACKER=stub|hf      MAKAN_TRACKER_ADAPTER=<hf repo id>     Qwen + LoRA [TRACK] (Nichole)
+    MAKAN_GENERATOR=stub|hf    MAKAN_GENERATOR_ADAPTER=<hf repo id>   Qwen + LoRA [REPLY] (Denise)
                                MAKAN_BASE_LLM (default Qwen/Qwen2.5-1.5B-Instruct)
 
-MAKAN_LORA_ADAPTER defaults to the team's adapter, makan-where-cs425/makan-qwen-lora. Private
+The tracker and generator each have their own LoRA adapter on the one base model. The adapters
+default to the team's repos, makan-where-cs425/makan-qwen-track and makan-qwen-reply. Private
 repos also need HF_TOKEN (read by huggingface_hub itself). Any of these can go in the repo's
 .env file (gitignored) instead of the environment; a real environment variable wins.
 """
@@ -43,11 +44,11 @@ COMPONENTS = ("normalizer", "style", "tracker", "generator")
 MODEL_ENV = {
     "normalizer": "MAKAN_NORMALIZER_MODEL",
     "style": "MAKAN_STYLE_MODEL",
-    "tracker": "MAKAN_LORA_ADAPTER",
-    "generator": "MAKAN_LORA_ADAPTER",
+    "tracker": "MAKAN_TRACKER_ADAPTER",
+    "generator": "MAKAN_GENERATOR_ADAPTER",
 }
-QWEN_LORA = "makan-where-cs425/makan-qwen-lora"  # private: HF_TOKEN must be a member's token
-DEFAULT_MODELS = {"tracker": QWEN_LORA, "generator": QWEN_LORA}
+# private: HF_TOKEN must be a member's token
+DEFAULT_MODELS = {"tracker": "makan-where-cs425/makan-qwen-track", "generator": "makan-where-cs425/makan-qwen-reply"}
 BASE_LLM = os.getenv("MAKAN_BASE_LLM", "Qwen/Qwen2.5-1.5B-Instruct")
 
 

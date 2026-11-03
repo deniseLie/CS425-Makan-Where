@@ -52,7 +52,7 @@ We train three models, and only one is an LLM. The recommender is plain code and
 
 | Component | Model | Size | Training |
 | --- | --- | --- | --- |
-| Preference tracker + reply generator | One LLM: Qwen2.5-1.5B-Instruct (or SEA-LION) + one LoRA (Low-Rank Adaptation) adapter, with a task label `[TRACK]` or `[REPLY]` on each example | 1.5B | QLoRA with MultiWOZ dataset |
+| Preference tracker + reply generator | One LLM: Qwen2.5-1.5B-Instruct (or SEA-LION) + one LoRA (Low-Rank Adaptation) adapter per task, with a task label `[TRACK]` or `[REPLY]` on each example. One adapter shared by both tasks is compared as an ablation | 1.5B | QLoRA with MultiWOZ dataset |
 | Singlish normalizer | Flan-T5-base | 250M | Full fine-tune on the Singlish–English pairs |
 | Style detector | SingBERT classifier | 110M | Full fine-tune on labelled Singlish and English sentences |
 | Recommender | Python code | none | None; searches `places.csv` directly |

@@ -27,4 +27,4 @@ def build_prompt(action: PolicyAction, style: str, user_text: str) -> str:
 def generate(action: PolicyAction, style: str, user_text: str) -> str:
     from src.llm import complete
 
-    return complete(build_prompt(action, style, user_text)) or template_reply(action, style)
+    return complete(build_prompt(action, style, user_text), "generator") or template_reply(action, style)

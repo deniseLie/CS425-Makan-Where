@@ -61,4 +61,4 @@ def parse(text: str, prev: DialogueState) -> TrackerOutput:
 def track(history: list[Turn], prev: DialogueState) -> TrackerOutput:
     from src.llm import complete
 
-    return parse(complete(build_prompt(history)), prev)
+    return parse(complete(build_prompt(history), "tracker"), prev)

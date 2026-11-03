@@ -44,3 +44,12 @@ def test_hf_without_model_id_fails_clearly(monkeypatch):
     monkeypatch.setenv("MAKAN_STYLE", "bert")
     with pytest.raises(ValueError):
         config.impl("style")
+
+
+def test_tracker_and_generator_have_their_own_adapters(monkeypatch):
+    monkeypatch.delenv("MAKAN_TRACKER_ADAPTER", raising=False)
+    monkeypatch.delenv("MAKAN_GENERATOR_ADAPTER", raising=False)
+    assert config.model_id("tracker") != config.model_id("generator")
+    monkeypatch.setenv("MAKAN_TRACKER_ADAPTER", "team/track")
+    monkeypatch.setenv("MAKAN_GENERATOR_ADAPTER", "team/reply")
+    assert (config.model_id("tracker"), config.model_id("generator")) == ("team/track", "team/reply")

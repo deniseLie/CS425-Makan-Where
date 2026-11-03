@@ -6,7 +6,7 @@ replies written by Claude (Claude Code subagents acting as the teacher model, no
 
 | file | rows | contents |
 |---|---|---|
-| `reply_train.jsonl` | 1,363 | training rows: `input` = `generator.hf.build_prompt(action, style, user_text)`, `output` = the reply. Same row format as the `[TRACK]` files (`id`, `task`, `source`, `style`, `input`, `output`), so the two can be mixed for the shared adapter. |
+| `reply_train.jsonl` | 1,363 | training rows: `input` = `generator.hf.build_prompt(action, style, user_text)`, `output` = the reply. Same row format as the `[TRACK]` files (`id`, `task`, `source`, `style`, `input`, `output`), so the two can be mixed for the shared-adapter ablation. |
 | `reply_dev.jsonl` | 276 | the same for dev |
 | `replies_train.jsonl`, `replies_dev.jsonl` | 1,363 / 276 | the full rows the training rows are built from: `id`, `style`, `user_text`, `action`, `state`, `reply` |
 
