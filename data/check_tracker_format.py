@@ -28,7 +28,7 @@ ALLOWED = {
     "area": {a for pool in AREA_POOL.values() for a in pool} | set(ALIASES) | set(REGIONS),
     "budget": {"below $5", "below $10", "$10-20", "above $20"},
     "dietary": {"halal", "vegetarian", "vegan", "no beef", "no pork"},
-    "setting": {"hawker", "aircon", "cafe", "food court"},
+    "setting": {"hawker", "aircon", "cafe", "food court", "restaurant", "takeaway"},
 }
 TIME_RE = re.compile(r"breakfast|lunch|dinner|late night|now|([01]\d|2[0-3]):[0-5]\d")
 # Leftover Cambridge contact details (deliberately looser than convert_final.py's).

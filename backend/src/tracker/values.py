@@ -72,7 +72,9 @@ TABLES: dict[str, dict[str, str]] = {
                 "vegetarian": "vegetarian", "veggie": "vegetarian", "vegan": "vegetarian",
                 "no beef": "no beef"},
     "setting": {"hawker": "hawker", "kopitiam": "hawker", "coffeeshop": "hawker",
-                "aircon": "aircon", "cafe": "cafe", "food court": "food court", "foodcourt": "food court"},
+                "aircon": "aircon", "cafe": "cafe", "food court": "food court", "foodcourt": "food court",
+                "restaurant": "restaurant", "sit-down": "restaurant",
+                "takeaway": "takeaway", "tapau": "takeaway", "dabao": "takeaway"},
     "time": {**{m: m for m in MEALS}, "supper": "late night", "late_night": "late night"},
 }
 
