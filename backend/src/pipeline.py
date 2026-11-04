@@ -10,6 +10,7 @@ import json
 import re
 import uuid
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
@@ -20,7 +21,7 @@ from src.policy import apply_tracker_output, decide
 from src.schemas import DialogueState, PolicyAction, Turn
 from src.style import detect_style
 from src.tracker import track
-from src.tracker.values import translate
+from src.tracker.values import TABLES, translate
 
 LOG_DIR = Path(__file__).resolve().parents[1] / "logs"
 
@@ -32,10 +33,38 @@ def mentioned_places(reply: str, names: list[str]) -> set[str]:
             if n.lower() in low and re.search(rf"(?<!\w){re.escape(n.lower())}(?!\w)", low)}
 
 
+# Everyday words that aren't in the tracker's value tables. Places in places.csv are named just
+# "Korean", "Halal Food", "Chicken Rice" or "EAT"; a reply using those words isn't naming the place.
+COMMON_WORDS = {"rice", "noodles", "noodle", "dim", "sum", "food", "foods", "seafood", "coffee", "kopi",
+                "bbq", "grill", "eat", "eats", "the", "and", "good", "nice", "best", "place", "shop",
+                "house", "kitchen", "stall", "corner", "drinks", "drink", "snacks", "dessert", "desserts"}
+
+
+@lru_cache(maxsize=1)
+def generic_words() -> frozenset[str]:
+    """Lowercased words the bot says on its own: every word of the slot values (cuisines, dishes,
+    areas, settings...) plus COMMON_WORDS."""
+    words = set(COMMON_WORDS)
+    for table in TABLES.values():
+        for value in (*table, *table.values()):
+            words |= set(re.findall(r"\w+", value.lower()))
+    return frozenset(words)
+
+
+def is_generic(name: str) -> bool:
+    """True if a place name is only everyday words ("Korean", "Halal Food", "Eat")."""
+    words = re.findall(r"\w+", name.lower())
+    return bool(words) and all(w in generic_words() for w in words)
+
+
 def guardrail(reply: str, action: PolicyAction, style: str) -> tuple[str, bool]:
-    """If the reply names a known place that the policy did not pick, fall back to the template."""
-    allowed = {p.name for p in action.places}
-    rogue = mentioned_places(reply, recommender.place_names()) - allowed
+    """If the reply names a known place that the policy did not pick, fall back to the template.
+    The picked names are taken out first ("Ha-Jun Korean" contains another place's name, "Korean"),
+    and place names made only of everyday words don't count."""
+    rest = reply
+    for name in sorted({p.name for p in action.places}, key=len, reverse=True):  # longest first
+        rest = re.sub(re.escape(name), " ", rest, flags=re.IGNORECASE)
+    rogue = {n for n in mentioned_places(rest, recommender.place_names()) if not is_generic(n)}
     if rogue:
         return template_reply(action, style), True
     return reply, False
@@ -77,8 +106,8 @@ class MakanSession:
             self.n_asked += 1
         self.last_action = action
 
-        reply = generate(action, style, raw_text)
-        reply, guard_triggered = guardrail(reply, action, style)
+        generated = generate(action, style, raw_text)
+        reply, guard_triggered = guardrail(generated, action, style)
 
         turn.reply = reply
         self.history.append(turn)
@@ -95,6 +124,7 @@ class MakanSession:
             "n_asked": self.n_asked,
             "action": action.to_dict(),
             "guardrail_triggered": guard_triggered,
+            "replaced_reply": generated if guard_triggered else None,  # what the generator wrote
             "reply": reply,
         }
         self._log(debug)

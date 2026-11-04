@@ -5,7 +5,7 @@ import pytest
 import src.pipeline as pipeline
 import src.tracker.hf as hf
 from src.pipeline import MakanSession
-from src.schemas import UNKNOWN, DialogueState, Turn
+from src.schemas import UNKNOWN, DialogueState, PolicyAction, RankedPlace, Turn
 from src.style import detect_style
 from src.tracker import track
 
@@ -56,6 +56,29 @@ def test_guardrail_replaces_hallucinated_place(session, monkeypatch):
     reply, debug = session.step("ok")
     assert debug["guardrail_triggered"] is True
     assert "Orchard Sky Grill" not in reply
+
+
+def test_guardrail_logs_the_replaced_reply(session, monkeypatch):
+    monkeypatch.setattr(pipeline, "generate", lambda action, style, text: "Go Orchard Sky Grill lah!")
+    _, debug = session.step("korean food in bugis please")
+    assert debug["replaced_reply"] == "Go Orchard Sky Grill lah!"
+    rec = json.loads(session.log_path.read_text(encoding="utf-8").splitlines()[-1])
+    assert rec["replaced_reply"] == "Go Orchard Sky Grill lah!"
+
+
+def test_guardrail_ignores_generic_place_names_and_picked_names(monkeypatch):
+    # places.csv has places named just "Korean", "Cafe", "Chicken Rice", "Dim Sum"...
+    catalogue = ["Korean", "Cafe", "Chicken Rice", "Dim Sum", "Ha-Jun Korean", "Orchard Sky Grill"]
+    monkeypatch.setattr(pipeline.recommender, "place_names", lambda: catalogue)
+    ask = PolicyAction(kind="ask", ask_slot="setting", ask_options=["hawker", "cafe"])
+    for reply in ["Want Korean or not? Cafe also can.", "Got chicken rice and dim sum lah."]:
+        assert pipeline.guardrail(reply, ask, "singlish") == (reply, False)
+
+    rec = PolicyAction(kind="recommend", places=[RankedPlace(place_id="P1", name="Ha-Jun Korean", score=1.0)])
+    reply = "Try Ha-Jun Korean lah, the korean food there shiok."
+    assert pipeline.guardrail(reply, rec, "singlish") == (reply, False)
+    _, fired = pipeline.guardrail("Try Ha-Jun Korean or Orchard Sky Grill.", rec, "singlish")
+    assert fired
 
 
 def test_not_interested_excludes_last_top_pick(session):
