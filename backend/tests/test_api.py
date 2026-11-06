@@ -38,6 +38,7 @@ def test_bad_requests(client):
 def test_hf_without_model_id_fails_clearly(monkeypatch):
     monkeypatch.setenv("MAKAN_STYLE", "hf")
     monkeypatch.delenv("MAKAN_STYLE_MODEL", raising=False)
+    monkeypatch.delitem(config.DEFAULT_MODELS, "style")
     assert config.impl("style") == "hf"
     with pytest.raises(RuntimeError, match="MAKAN_STYLE_MODEL"):
         config.model_id("style")
@@ -58,3 +59,10 @@ def test_tracker_and_generator_have_their_own_adapters(monkeypatch):
 def test_normalizer_defaults_to_the_team_model(monkeypatch):
     monkeypatch.delenv("MAKAN_NORMALIZER_MODEL", raising=False)
     assert config.model_id("normalizer") == "makan-where-cs425/makan-flan-normalizer"
+
+
+def test_style_defaults_to_the_team_model(monkeypatch):
+    monkeypatch.delenv("MAKAN_STYLE_MODEL", raising=False)
+    assert config.model_id("style") == "makan-where-cs425/makan-singbert-style-classifier"
+    monkeypatch.setenv("MAKAN_STYLE_MODEL", "team/style")
+    assert config.model_id("style") == "team/style"

@@ -9,8 +9,9 @@ Each model component runs either the local stub or the trained model from the Hu
                                MAKAN_BASE_LLM (default Qwen/Qwen2.5-1.5B-Instruct)
 
 The tracker and generator each have their own LoRA adapter on the one base model. The adapters
-default to the team's repos, makan-where-cs425/makan-qwen-track and makan-qwen-reply, and the
-normalizer to makan-where-cs425/makan-flan-normalizer. Private
+default to the team's repos, makan-where-cs425/makan-qwen-track and makan-qwen-reply, the
+normalizer to makan-where-cs425/makan-flan-normalizer, and the style classifier to
+makan-where-cs425/makan-singbert-style-classifier. Private
 repos also need HF_TOKEN (read by huggingface_hub itself). Any of these can go in the repo's
 .env file (gitignored) instead of the environment; a real environment variable wins.
 """
@@ -57,6 +58,7 @@ MODEL_ENV = {
 # the Qwen adapters are private: HF_TOKEN must be a member's token
 DEFAULT_MODELS = {
     "normalizer": "makan-where-cs425/makan-flan-normalizer",
+    "style": "makan-where-cs425/makan-singbert-style-classifier",
     "tracker": "makan-where-cs425/makan-qwen-track",
     "generator": "makan-where-cs425/makan-qwen-reply",
 }
