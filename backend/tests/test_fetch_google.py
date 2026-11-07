@@ -79,3 +79,36 @@ def test_google_rows_merge_into_places(tmp_path):
     new = out.loc["Gfar1"]
     assert new["name"] == "Bugis Pho" and new["cuisine"] == "vietnamese" and new["price_source"] == "google"
     assert new["area"] == "DOWNTOWN CORE"
+
+
+def test_google_needs_a_name_match_for_named_places(tmp_path):
+    """A Google Japanese restaurant 10 m from a named cafe must not label the cafe Japanese."""
+    spec2 = importlib.util.spec_from_file_location("build_places", ROOT / "data" / "build_places.py")
+    bp = importlib.util.module_from_spec(spec2)
+    spec2.loader.exec_module(bp)
+    nea = pd.DataFrame([
+        dict(place_id="P1", name="THE COFFEE BEAN & TEA LEAF PTE LTD", lat=1.3010, lon=103.8450,
+             area="MUSEUM", region="Central", nea_type="Cafe/Restaurant (Mall)",
+             address="68 ORCHARD ROAD #05-20 PLAZA SINGAPURA SINGAPORE 238839", postal_code=238839,
+             licence_number="L1"),
+        dict(place_id="P2", name="TAN AH KOW", lat=1.3100, lon=103.8500, area="MUSEUM", region="Central",
+             nea_type="HC", address="ALBERT CENTRE Stall No 01-05", licence_number="L2"),
+    ])
+    nea_path = tmp_path / "nea.csv"
+    nea.to_csv(nea_path, index=False)
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    sushi = {**PLACE, "id": "sushi-1", "displayName": {"text": "Genki Sushi"},
+             "primaryType": "sushi_restaurant", "types": [], "formattedAddress": "68 Orchard Rd, Singapore 238839",
+             "location": {"latitude": 1.30101, "longitude": 103.84501}}
+    stall = {**PLACE, "id": "stall-1", "displayName": {"text": "Ah Kow Chicken Rice"},
+             "primaryType": "chinese_restaurant", "types": [], "formattedAddress": "Albert Centre, Singapore",
+             "location": {"latitude": 1.31001, "longitude": 103.85001}}
+    pd.DataFrame([fg.to_row(sushi), fg.to_row(stall)]).to_csv(raw / "google_places.csv", index=False)
+    out = bp.build(nea_path, raw, tmp_path / "places.csv").set_index("place_id")
+    cafe = out.loc["P1"]
+    assert cafe["cuisine"] != "japanese" and pd.isna(cafe["rating"])  # nothing copied from the sushi bar
+    assert out.loc["Gsushi1", "name"] == "Genki Sushi"                # added as its own place
+    # a stall named after its address has no real name, so location is enough
+    assert out.loc["P2", "name"] == "Ah Kow Chicken Rice" and out.loc["P2", "cuisine"] == "chinese"
+
