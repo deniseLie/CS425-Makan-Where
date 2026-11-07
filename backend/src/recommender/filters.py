@@ -4,12 +4,15 @@ UNKNOWN and ANY add no condition. Slot values are first mapped to canonical form
 table. Hard constraints:
 
     cuisine   cuisine = ?  or the cuisine appears in the place's tags
-    area      area = ?  (or region = ? for "east", "north-east", ...)
-    radius    within state.radius_km of the user (if known) or of the area's centre
+    area      area = ?  (or region = ? for "east", "north-east", ...). When the user named a spot
+              ("near bras basah"), within state.radius_km of that spot instead
+    radius    within state.radius_km of the named spot, else the user (if known), else the
+              area's centre
     dietary   halal = 1 | vegetarian = 1 | "no beef": nothing beef-named
     setting   setting = ?;  "aircon": not known to be open-air (unknown is kept)
     time      open at that time (places with unknown hours are kept)
-    budget    price_min <= cap   (cap from budget_max or "<=N")
+    budget    middle price <= cap (cap from budget_max or "<=N"); the middle of price_min and
+              price_max, or price_min when there is no top price. It is the "~$N" the reply shows
     excluded  place_id NOT IN (...)
 
 Every value goes in as a ? parameter, never pasted into the SQL text.
@@ -25,11 +28,20 @@ from typing import Optional
 import pandas as pd
 
 from src.recommender import db
-from src.recommender.aliases import canonical
+from src.recommender.aliases import canonical, landmark, landmark_point
 from src.recommender.hours import check_time
 from src.schemas import ANY, UNKNOWN, DialogueState
 
 BEEF_WORDS = ("beef", "gyu", "wagyu", "steak", "yakiniku")
+PRICE_MID_SQL = "(price_min + IFNULL(price_max, price_min)) / 2.0"
+
+
+def price_mid(place) -> Optional[float]:
+    """middle of the price range, or price_min when there is no top price; None if unknown."""
+    lo, hi = place.get("price_min"), place.get("price_max")
+    if lo is None or lo != lo:
+        return None
+    return (lo + hi) / 2 if hi is not None and hi == hi else lo
 
 
 def slots_of(state: DialogueState) -> dict[str, str]:
@@ -48,9 +60,18 @@ def budget_cap(state: DialogueState, slots: Optional[dict] = None) -> Optional[f
     return float(m.group(1)) if m else None
 
 
+def landmark_of(state: DialogueState) -> Optional[str]:
+    """the spot the user named: state.landmark, or a landmark kept in the area slot itself
+    ("bras basah" isn't in values.py, so it reaches the state as is)."""
+    return state.landmark or landmark(state.slots["area"])
+
+
 def ref_point(state: DialogueState, user_latlon=None, slots: Optional[dict] = None) -> Optional[tuple[float, float]]:
-    """Where the radius is measured from: the user if known, else the centre of the chosen
-    planning area. A region has no single centre -> None (no radius filter)."""
+    """Where the radius is measured from: the spot the user named, else the user if known, else
+    the centre of the chosen planning area. A region has no single centre -> None (no radius)."""
+    spot = landmark_of(state)
+    if spot and landmark_point(spot):
+        return landmark_point(spot)
     if user_latlon is not None:
         return tuple(user_latlon)
     area = (slots or slots_of(state))["area"]
@@ -62,7 +83,8 @@ def build_query(state: DialogueState, user_latlon=None, now: Optional[datetime] 
     s = slots_of(state)
     where, params = [], []
 
-    if filled(s["area"]):
+    near_spot = bool(landmark_of(state) and landmark_point(landmark_of(state)))
+    if filled(s["area"]) and not near_spot:  # a named spot is searched by radius only
         where.append("region = ?" if s["area"] in db.regions() else "area = ?")
         params.append(s["area"])
     if filled(s["cuisine"]):
@@ -91,7 +113,7 @@ def build_query(state: DialogueState, user_latlon=None, now: Optional[datetime] 
             params.append(t)
     cap = budget_cap(state, s)
     if cap is not None:
-        where.append("price_min <= ?")
+        where.append(f"{PRICE_MID_SQL} <= ?")
         params.append(cap)
     if state.excluded_place_ids:
         where.append(f"place_id NOT IN ({', '.join('?' * len(state.excluded_place_ids))})")
@@ -139,7 +161,7 @@ def violations(state: DialogueState, place: dict) -> list[str]:
     if filled(s["cuisine"]) and place.get("cuisine") != s["cuisine"] \
             and s["cuisine"] not in str(place.get("tags", "")).split(";"):
         bad.append("cuisine")
-    if filled(s["area"]):
+    if filled(s["area"]) and not (landmark_of(state) and landmark_point(landmark_of(state))):
         col = "region" if s["area"] in db.regions() else "area"
         if place.get(col) != s["area"]:
             bad.append("area")
@@ -148,7 +170,8 @@ def violations(state: DialogueState, place: dict) -> list[str]:
     elif filled(s["setting"]) and s["setting"] != "aircon" and place.get("setting") != s["setting"]:
         bad.append("setting")
     cap = budget_cap(state, s)
-    if cap is not None and not (place.get("price_min") is not None and place["price_min"] <= cap):
+    mid = price_mid(place)
+    if cap is not None and not (mid is not None and mid <= cap + 1e-9):
         bad.append("budget")
     if place.get("place_id") in state.excluded_place_ids:
         bad.append("excluded")

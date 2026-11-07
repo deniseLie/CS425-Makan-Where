@@ -5,6 +5,7 @@ Interface (do not change):
     rank(state, query_norm: str, user_latlon, k=3) -> list[RankedPlace]
     load_places() -> pandas.DataFrame                                   # the catalogue
     place_names() -> list[str]                                          # used by the pipeline guardrail
+    track_landmark(prev_landmark, prev_area, new_area, raw_area, text)  # spot to search around
 
 Modules:
     db.py       places.csv -> pandas + in-memory SQLite; area centres
@@ -15,9 +16,10 @@ Modules:
     hours.py    opening hours for the time slot
     stub.py     the old rating-only baseline, kept for ablations
 """
+from .aliases import track_landmark
 from .content import warm_up
 from .db import area_centroids, load_places, place_names, use_places_csv
 from .filters import candidates
 from .ranking import WEIGHTS, rank
 
-__all__ = ["candidates", "rank", "load_places", "place_names", "area_centroids", "use_places_csv", "warm_up", "WEIGHTS"]
+__all__ = ["candidates", "rank", "load_places", "place_names", "area_centroids", "use_places_csv", "warm_up", "track_landmark", "WEIGHTS"]

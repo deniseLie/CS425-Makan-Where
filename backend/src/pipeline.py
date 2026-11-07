@@ -93,12 +93,18 @@ class MakanSession:
         style = detect_style(raw_text)
         turn = Turn(raw=raw_text, normalized=normalized, style=style)
 
-        tracker_out = translate(track(self.history + [turn], self.state))
+        raw_out = track(self.history + [turn], self.state)
+        tracker_out = translate(raw_out)
         # "dun want this one": the tracker doesn't name the place, but we know what we showed last.
         if tracker_out.critique == "not_interested" and tracker_out.reject is None \
                 and self.last_action is not None and self.last_action.places:
             tracker_out.reject = self.last_action.places[0].place_id
+        prev = self.state
         self.state = apply_tracker_output(self.state, tracker_out)
+        # "near Bras Basah": the area slot becomes "downtown core", so keep the exact spot too
+        self.state.landmark = recommender.track_landmark(
+            prev.landmark, prev.slots["area"], self.state.slots["area"],
+            raw_area=raw_out.slots["area"], text=normalized or raw_text)
 
         action = decide(self.state, self.n_asked, recommender,
                         query_norm=normalized, user_latlon=self.user_latlon)

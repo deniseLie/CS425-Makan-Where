@@ -157,3 +157,16 @@ def test_tracker_stub():
     out = track([Turn(raw="anything also can")], DialogueState(slots={"cuisine": "korean"}))
     assert out.slots["area"] == "ANY"
     assert track([Turn(raw="don't want Hanok BBQ Bugis")], DialogueState()).reject == "P002"
+
+
+def test_named_spot_is_kept_across_turns():
+    from src.pipeline import MakanSession
+
+    s = MakanSession(log_dir=None)
+    _, d1 = s.step("korean near bugis")
+    assert d1["state"]["slots"]["area"] == "downtown core" and d1["state"]["landmark"] == "bugis"
+    _, d2 = s.step("too far leh")
+    assert d2["state"]["landmark"] == "bugis" and d2["state"]["radius_km"] == 1.0
+    _, d3 = s.step("tampines then")
+    assert d3["state"]["slots"]["area"] == "tampines" and d3["state"]["landmark"] is None
+

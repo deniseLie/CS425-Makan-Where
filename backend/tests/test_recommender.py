@@ -116,7 +116,7 @@ def test_rank_sorted_and_k():
 
 def test_dataset_values_find_places():
     out = translate(TrackerOutput(slots={"cuisine": "Western", "area": "Bugis",
-                                         "budget": "below $10", "time": "19:30"}))
+                                         "budget": "$10-20", "time": "19:30"}))
     s = DialogueState(slots=out.slots)
     assert [p.name for p in recommender.rank(s, "", None)] == ["Sunny Veggie Bowl"]
     malay_east = DialogueState(slots=translate(TrackerOutput(slots={"cuisine": "Malay", "area": "east"})).slots)
@@ -148,7 +148,7 @@ def test_cheap_prefers_lower_prices(tmp_places):
 
 def test_budget_gives_partial_credit(tmp_places):
     tmp_places([dict(place_id="FITS", name="Fits", price_min=5, price_max=9),
-                dict(place_id="PART", name="Partly", price_min=8, price_max=16)])
+                dict(place_id="PART", name="Partly", price_min=6, price_max=13)])
     s = DialogueState(slots={"budget": "<=10"}, budget_max=10)
     df = ranking.score(filters.filtered(s), s).set_index("place_id")
     assert df.loc["FITS", "s_soft"] == 1.0 and 0 < df.loc["PART", "s_soft"] < 1
@@ -343,3 +343,67 @@ def test_real_places_hard_constraints_never_violated(real_places):
                 assert row["aircon"] != 0
             if cap is not None:
                 assert row["price_min"] <= cap
+
+
+# --------------------------------------------------------------------------- budget: middle price
+
+def test_budget_checks_the_middle_price(tmp_places):
+    tmp_places([dict(place_id="WIDE", name="One To Ten", price_min=1, price_max=10),      # ~$6
+                dict(place_id="CHEAP", name="Three To Six", price_min=3, price_max=6),    # ~$4
+                dict(place_id="NOTOP", name="Only Min", price_min=5, price_max=None),     # $5
+                dict(place_id="NOPRICE", name="No Price", price_min=None, price_max=None)])
+    s = DialogueState(slots={"budget": "<=5"}, budget_max=5)
+    ids = {c["place_id"] for c in recommender.candidates(s)}
+    assert ids == {"CHEAP", "NOTOP"}
+    # the price the reply shows is never above the budget
+    for p in recommender.rank(s, "", None, k=5):
+        shown = [r for r in p.reasons if r.startswith("~$")]
+        assert not shown or float(shown[0][2:].split()[0]) <= 5
+
+
+def test_violations_use_the_middle_price():
+    s = DialogueState(slots={"budget": "<=5"}, budget_max=5)
+    assert "budget" in filters.violations(s, {"price_min": 1, "price_max": 10})
+    assert "budget" not in filters.violations(s, {"price_min": 3, "price_max": 6})
+    assert "budget" not in filters.violations(s, {"price_min": 5, "price_max": float("nan")})
+    assert "budget" in filters.violations(s, {"price_min": None, "price_max": None})
+
+
+# ------------------------------------------------------------------ named spot ("near bras basah")
+
+def test_landmark_helpers():
+    assert aliases.landmark("near Bras Basah") == "bras basah"
+    assert aliases.landmark("downtown core") is None and aliases.landmark("amk") is None
+    assert aliases.landmark_in_text("ok can, near SMU pls", "downtown core") == "smu"
+    assert aliases.landmark_in_text("bugis side", "tampines") is None
+    tl = aliases.track_landmark
+    assert tl(None, UNKNOWN, "downtown core", raw_area="Bras Basah") == "bras basah"   # tracker's words
+    assert tl(None, UNKNOWN, "bras basah") == "bras basah"                            # kept in the slot
+    assert tl(None, UNKNOWN, "downtown core", text="korean near bugis") == "bugis"    # user's message
+    assert tl("bugis", "downtown core", "downtown core", text="too far leh") == "bugis"  # kept
+    assert tl("bugis", "downtown core", "tampines", text="tampines then") is None     # moved on
+    assert tl("bugis", "downtown core", ANY) is None
+
+
+def test_named_spot_moves_the_search(tmp_places):
+    tmp_places([
+        dict(place_id="BRAS", name="Near Bras Basah", lat=1.2970, lon=103.8510, area="DOWNTOWN CORE"),
+        dict(place_id="RAFF", name="Near Raffles Place", lat=1.2840, lon=103.8515, area="DOWNTOWN CORE"),
+        dict(place_id="OTHER", name="Across The Line", lat=1.2985, lon=103.8495, area="MUSEUM"),
+    ])
+    near_bras = DialogueState(slots={"area": "downtown core"}, landmark="bras basah", radius_km=1.0)
+    ids = {c["place_id"] for c in recommender.candidates(near_bras)}
+    assert ids == {"BRAS", "OTHER"}  # radius around the spot, whichever planning area
+    assert recommender.rank(near_bras, "", None, k=1)[0].place_id == "BRAS"
+    near_raff = DialogueState(slots={"area": "downtown core"}, landmark="raffles place", radius_km=1.0)
+    assert {c["place_id"] for c in recommender.candidates(near_raff)} == {"RAFF"}
+    # a landmark the tracker wrote straight into the slot works without state.landmark
+    assert {c["place_id"] for c in recommender.candidates(
+        DialogueState(slots={"area": "bras basah"}, radius_km=1.0))} == {"BRAS", "OTHER"}
+    # no spot: whole planning area, as before
+    assert {c["place_id"] for c in recommender.candidates(
+        DialogueState(slots={"area": "downtown core"}, radius_km=5))} == {"BRAS", "RAFF"}
+    # nothing returned breaks a hard constraint
+    for c in recommender.candidates(near_bras):
+        assert filters.violations(near_bras, c) == []
+

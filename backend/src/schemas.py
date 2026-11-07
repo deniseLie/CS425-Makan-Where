@@ -84,6 +84,9 @@ class DialogueState(_JSONMixin):
     excluded_place_ids: list[str] = field(default_factory=list)
     radius_km: float = 2.0
     budget_max: Optional[float] = None
+    # the exact spot the user named ("bras basah", "smu"), if any. The area slot only holds its
+    # planning area ("downtown core"), so the recommender searches around this spot instead.
+    landmark: Optional[str] = None
 
     def __post_init__(self) -> None:
         # Missing slots default to UNKNOWN so partial dicts (e.g. in tests) are fine.
