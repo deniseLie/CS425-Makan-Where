@@ -75,6 +75,8 @@ REGION = {
 }
 
 # Confirm these ranges match the application's SQL filters.
+# After converting, run data/relabel_budget.py: it turns these into "<=10" / "<=20" / ANY
+# (or "<=N" when the user named an amount), the form check_tracker_format.py expects.
 BUDGET_MAP = {
     "cheap": "below $10",
     "moderate": "$10-20",

@@ -2,8 +2,8 @@
 
 | path | what | built by |
 |---|---|---|
-| `woz_converted_data/` | MultiWOZ 2.2 restaurant dialogues as `[TRACK]` rows | `convert_final.py` |
-| `synthetic_data/` | synthetic Singlish `[TRACK]` dialogues | `build_synthetic.py` |
+| `woz_converted_data/` | MultiWOZ 2.2 restaurant dialogues as `[TRACK]` rows | `convert_final.py`, then `relabel_budget.py` |
+| `synthetic_data/` | synthetic Singlish `[TRACK]` dialogues, including budget dialogues (amounts said many ways, budgets that change) and dietary dialogues ("no" / "none" / "dun have" answering the dietary question -> `ANY`, `non-vegetarian`, `non-halal`, `no-pork`, changes mid-chat) | `build_synthetic.py` |
 | `reply_data/` | synthetic `[REPLY]` rows for the reply generator, replies written by Claude Code (see its README) | `backend/src/generator/drafts.py`, `teacher.py`, `checks.py` |
 | `master/places_nea.csv` | NEA establishments, plain conversion | `convert_nea_places.py` |
 | `master/places.csv` | recommender place database (cleaned + enriched) | `build_places.py` |
@@ -16,6 +16,18 @@ every row after rebuilding either dataset:
 
 ```bash
 python data/check_tracker_format.py
+```
+
+`budget` is `"<=N"`, the most the user will pay, with the latest amount they said (`"about $15"` ->
+`<=15`, `"budget 8-10"` -> `<=10`, `"actually only $8"` -> `<=8`), or `ANY` for no cap. The data used
+to keep only four buckets (`below $5`, `below $10`, `$10-20`, `above $20`); `relabel_budget.py`
+read the amounts back from the user's lines (bucket top when there was no number, e.g. MultiWOZ's
+`cheap` -> `<=10`, `moderate` -> `<=20`, `expensive` -> `ANY`). `build_synthetic.py` now writes
+`<=N` itself, so only a rebuilt MultiWOZ conversion needs it again:
+
+```bash
+python data/relabel_budget.py --check    # what would change, and rows whose words and label disagree
+python data/relabel_budget.py            # rewrite the tracker files in place
 ```
 
 ## places.csv and aliases.csv (owner: Yuhanna)
