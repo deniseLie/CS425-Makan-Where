@@ -1,4 +1,4 @@
-# extra packages to run the trained models from the Hugging Face Hub (MAKAN_*=hf)
+# extra packages to run the trained models from the Hugging Face Hub (needed to run the app)
 -r requirements.txt
 torch
 transformers>=4.44

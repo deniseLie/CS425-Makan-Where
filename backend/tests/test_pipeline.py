@@ -5,10 +5,7 @@ import pytest
 import src.pipeline as pipeline
 import src.tracker.hf as hf
 from src.pipeline import MakanSession
-from src.schemas import ANY, UNKNOWN, DialogueState, PolicyAction, RankedPlace, Turn
-from src.tracker.values import BUDGET_UNCLEAR
-from src.style import detect_style
-from src.tracker import track
+from src.schemas import ANY, UNKNOWN, DialogueState, PolicyAction, RankedPlace
 
 
 @pytest.fixture
@@ -139,25 +136,6 @@ def test_reset(session):
     session.reset()
     assert session.history == [] and session.n_asked == 0 and session.state == DialogueState()
     assert session.last_action is None
-
-
-@pytest.mark.parametrize("text,style", [
-    ("can or not", "singlish"), ("got halal or not", "singlish"), ("eat where lor", "singlish"),
-    ("I would like some Korean food in Bugis", "english"),
-])
-def test_style_stub(text, style):
-    assert detect_style(text) == style
-
-
-def test_tracker_stub():
-    out = track([Turn(raw="cheap halal prata at jurong east")], DialogueState())
-    assert out.slots["cuisine"] == "indian"
-    assert out.slots["area"] == "jurong east"
-    assert out.slots["dietary"] == "halal"
-    assert out.slots["budget"] == BUDGET_UNCLEAR
-    out = track([Turn(raw="anything also can")], DialogueState(slots={"cuisine": "korean"}))
-    assert out.slots["area"] == "ANY"
-    assert track([Turn(raw="don't want Hanok BBQ Bugis")], DialogueState()).reject == "P002"
 
 
 def test_named_spot_is_kept_across_turns():

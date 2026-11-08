@@ -1,17 +1,50 @@
-"""Keyword/regex tracker stub. Only looks at the latest user turn and carries
-over everything else from `prev`. Its phrases come from the translator's tables
-(values.py), so it writes place-list values directly."""
+"""Offline stand-ins for the four models, so the tests run without torch, a GPU or the Hub.
+
+conftest.py puts them in place of the real normalize / detect_style / track / generate for every
+test. They only need to be good enough for the test conversations ("korean lah, bugis side",
+"too far leh"); a test that cares what a trained model writes scripts its answers through
+src.tracker.hf.parse instead.
+"""
 
 import re
 
-from src.schemas import ANY, REQUIRED_SLOTS, SOFT_SLOTS, UNKNOWN, DialogueState, TrackerOutput, Turn
+from src.generator.templates import template_reply
+from src.schemas import ANY, REQUIRED_SLOTS, SOFT_SLOTS, UNKNOWN, DialogueState, PolicyAction, TrackerOutput, Turn
+from src.tracker.values import TABLES, budget_update
 
-from .values import TABLES, budget_update
 
+def normalize(text: str) -> str:
+    """The Flan-T5 normalizer's stand-in: the text unchanged."""
+    return text
+
+
+def generate(action: PolicyAction, style: str, user_text: str) -> str:
+    """The [REPLY] generator's stand-in: the template reply."""
+    return template_reply(action, style)
+
+
+# SingBERT's stand-in: discourse particles and constructions that are strong Singlish signals.
+_STYLE_RX = [re.compile(p, re.IGNORECASE) for p in [
+    r"\b(lah|leh|lor|hor|meh|sia|liao|ah|mah|nia|bah)\b",
+    r"\b(alamak|aiyo|aiyah|shiok|makan|dabao|tapau|ta pau|walao|wah)\b",
+    r"\bgot\b.*\bor not\b",
+    r"\b(can|want|got|is it|have) or not\b",
+    r"\balso can\b",
+    r"\bwhere got\b",
+    r"\beat what\b",
+    r"\b\w+ side\b",              # "bugis side"
+]]
+
+
+def detect_style(text: str) -> str:
+    return "singlish" if any(rx.search(text) for rx in _STYLE_RX) else "english"
+
+
+# The [TRACK] tracker's stand-in: phrases from the translator's tables, latest turn only, everything
+# else carried over from `prev`. It writes place-list values directly.
 PHRASES: dict[str, dict[str, str]] = {
     slot: table for slot, table in TABLES.items() if slot != "budget"
 }
-
 ANY_PHRASES = ["anything also can", "anything can", "any also can", "anything",
                "whatever", "dont mind", "don't mind", "no preference", "up to you"]
 CRITIQUE_PHRASES = {
@@ -61,7 +94,7 @@ def _find_reject(text: str) -> str | None:
     """'don't want <place name>' / 'not <place name>' -> that place_id."""
     if not re.search(r"\b(don'?t want|not|no|skip|bored of)\b", text):
         return None
-    from src.recommender import load_places  # lazy: stub-only coupling
+    from src.recommender import load_places
 
     for row in load_places().itertuples():
         if row.name.lower() in text:

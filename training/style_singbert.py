@@ -15,8 +15,8 @@ Run from anywhere in a checkout (needs backend/requirements-ml.txt):
     python training/style_singbert.py --push          # ... and push to makan-where-cs425/makan-singbert-style-classifier
     python training/style_singbert.py --eval-only makan-where-cs425/makan-singbert-style-classifier   # score a trained model
 
-The eval runs the model through the backend's own src.style.hf.detect_style, and scores the
-keyword stub on the same rows as a baseline. Checkpoints go to --out (default outputs/style_singbert,
+The eval runs the model through the backend's own src.style.hf.detect_style, and scores a
+keyword heuristic (KEYWORD_RX) on the same rows as a baseline. Checkpoints go to --out (default outputs/style_singbert,
 gitignored); rerunning resumes from the newest. --push needs HF_TOKEN with write access to the repo.
 """
 
@@ -27,6 +27,7 @@ import json
 import math
 import os
 import random
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -153,19 +154,36 @@ def scores(gold: list[str], pred: list[str]) -> dict:
     return out
 
 
-def evaluate(model: str, rows: list[dict], out: Path) -> None:
-    """Scores the model as the backend serves it, and the stub as a baseline, overall and per source."""
-    os.environ["MAKAN_STYLE_MODEL"] = str(model)
-    from src.style import hf, stub
+# baseline: discourse particles and constructions that are strong Singlish signals
+KEYWORD_RX = [re.compile(p, re.IGNORECASE) for p in [
+    r"\b(lah|leh|lor|hor|meh|sia|liao|ah|mah|nia|bah)\b",
+    r"\b(alamak|aiyo|aiyah|shiok|makan|dabao|tapau|ta pau|walao|wah)\b",
+    r"\bgot\b.*\bor not\b",
+    r"\b(can|want|got|is it|have) or not\b",
+    r"\balso can\b",
+    r"\bwhere got\b",
+    r"\beat what\b",
+    r"\b\w+ side\b",              # "bugis side"
+]]
 
-    preds = {"model": [hf.detect_style(r["text"]) for r in rows], "stub": [stub.detect_style(r["text"]) for r in rows]}
+
+def keyword_style(text: str) -> str:
+    return "singlish" if any(rx.search(text) for rx in KEYWORD_RX) else "english"
+
+
+def evaluate(model: str, rows: list[dict], out: Path) -> None:
+    """Scores the model as the backend serves it, and the keyword baseline, overall and per source."""
+    os.environ["MAKAN_STYLE_MODEL"] = str(model)
+    from src.style import hf
+
+    preds = {"model": [hf.detect_style(r["text"]) for r in rows], "keyword": [keyword_style(r["text"]) for r in rows]}
     for name, pred in preds.items():
         for source in ["all"] + sorted({r["source"] for r in rows}):
             idx = [i for i, r in enumerate(rows) if source == "all" or r["source"] == source]
             s = scores([rows[i]["label"] for i in idx], [pred[i] for i in idx])
             if source != "all":  # one class per source for MultiWOZ: macro F1 means nothing there
                 s = {k: s[k] for k in ("n", "acc")}
-            print(f"{name:5} {source:9}", {k: round(v, 3) for k, v in s.items()})
+            print(f"{name:7} {source:9}", {k: round(v, 3) for k, v in s.items()})
     wrong = [r | {"pred": p} for r, p in zip(rows, preds["model"]) if p != r["label"]]
     with open(out / "eval_style_dev_errors.jsonl", "w", encoding="utf-8") as f:
         f.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in wrong)

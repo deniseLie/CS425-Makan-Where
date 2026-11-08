@@ -16,6 +16,7 @@ from pathlib import Path
 from area_pool import AREA_POOL
 from build_synthetic import ALIASES, CUISINES, DISHES, REGIONS
 from convert_final import CUISINE_MAP
+from relabel_budget import disagreement
 
 DATA = Path(__file__).resolve().parent
 DEFAULT_FILES = (sorted(DATA.glob("woz_converted_data/dialogues_*.jsonl"))
@@ -26,12 +27,13 @@ FEEDBACK = {"none", "too_far", "too_expensive", "not_interested"}
 ALLOWED = {
     "cuisine": set(CUISINES) | set(DISHES) | {label for label, _ in CUISINE_MAP.values()},
     "area": {a for pool in AREA_POOL.values() for a in pool} | set(ALIASES) | set(REGIONS),
-    "dietary": {"halal", "vegetarian", "vegan", "no beef", "no pork", "non-halal"},
+    "dietary": {"halal", "vegetarian", "vegan", "no beef", "no pork", "non-vegetarian", "non-halal"},
     "setting": {"hawker", "aircon", "cafe", "food court", "restaurant", "takeaway"},
 }
 TIME_RE = re.compile(r"breakfast|lunch|dinner|late night|now|([01]\d|2[0-3]):[0-5]\d")
-BUDGET_RE = re.compile(r"cheap|above \$20|(?:below )?\$\d+(?:\.\d{1,2})?(?:-\$?\d+(?:\.\d{1,2})?)?")
-PATTERNS = {"time": TIME_RE, "budget": BUDGET_RE}
+# the most the user will pay ("<=8", "<=7.5"); no cap is ANY. The old buckets ("below $10",
+# "$10-20", ...) are rejected: run relabel_budget.py after rebuilding the MultiWOZ data.
+BUDGET_RE = re.compile(r"<=\d+(\.\d+)?")
 # Leftover Cambridge contact details (deliberately looser than convert_final.py's).
 CAMBRIDGE_RE = re.compile(r"\b0?1\s?223[\s-]?\d|\+44|\b0\d{9,11}\b|\bc\.?\s?b\.?\s?\d|\bpe\d",
                           re.IGNORECASE)
@@ -69,7 +71,8 @@ def check_output(out):
         value = out[slot]
         if value in ("UNKNOWN", "ANY"):
             continue
-        if not (PATTERNS[slot].fullmatch(value) if slot in PATTERNS else value in ALLOWED[slot]):
+        pattern = {"time": TIME_RE, "budget": BUDGET_RE}.get(slot)
+        if not (pattern.fullmatch(value) if pattern else value in ALLOWED[slot]):
             yield slot, repr(value)
 
 
@@ -88,6 +91,12 @@ def main():
             else:
                 errors = list(check_output(out))
             errors += check_input(row["input"])
+            # synthetic rows are generated, so their budget must be what the user said
+            # (MultiWOZ has two known, checked exceptions: see relabel_budget.py's report)
+            if row.get("source") == "synthetic" and out.get("budget"):
+                said = disagreement(row, out["budget"])
+                if said:
+                    errors.append(("budget words", f"label {out['budget']}, user said {said}"))
             for kind, detail in errors:
                 problems[kind] += 1
                 example.setdefault(kind, f"line {n}: {detail}")

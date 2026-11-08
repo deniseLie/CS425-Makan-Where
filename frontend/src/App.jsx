@@ -92,8 +92,8 @@ export default function App() {
         </h1>
         <div className="badges">
           {components && ['normalizer', 'style', 'tracker', 'generator'].map((c) => (
-            <span key={c} className={`badge ${components[c].impl}`} title={components[c].model || 'local stub'}>
-              {c}: {components[c].impl}
+            <span key={c} className="badge" title={components[c].model}>
+              {c}
             </span>
           ))}
         </div>

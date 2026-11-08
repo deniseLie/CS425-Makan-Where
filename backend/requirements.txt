@@ -1,4 +1,4 @@
-# backend API + stub pipeline + tests
+# backend API + tests (the tests replace the models with tests/fakes.py)
 fastapi>=0.110
 uvicorn>=0.29
 pandas>=2.0
