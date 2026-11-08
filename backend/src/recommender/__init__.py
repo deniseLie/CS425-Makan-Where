@@ -14,7 +14,6 @@ Modules:
     ranking.py  hybrid score = content + soft-slot match + Bayesian quality + distance decay
     content.py  TF-IDF (default) or sentence-embedding similarity
     hours.py    opening hours for the time slot
-    stub.py     the old rating-only baseline, kept for ablations
 """
 from .aliases import track_landmark
 from .content import warm_up

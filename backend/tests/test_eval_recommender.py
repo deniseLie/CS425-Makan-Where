@@ -32,4 +32,4 @@ def test_evaluate_on_sample(tmp_path):
     path.write_text("\n".join(json.dumps(d) for d in gold), encoding="utf-8")
     m = ev.evaluate(ev.load_gold(tmp_path), k=3)
     assert m["hit@K"] == 1.0 and m["violation rate"] == 0.0 and 0 < m["P@K"] <= 1
-    assert ev.evaluate(ev.load_gold(path), k=3, use_stub=True)["violation rate"] == 0.0
+    assert ev.evaluate(ev.load_gold(path), k=3, weights=ev.RATING_ONLY)["violation rate"] == 0.0

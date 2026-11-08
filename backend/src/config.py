@@ -1,12 +1,12 @@
 """Runtime settings, all from environment variables (nothing secret lives in the repo).
 
-Each model component runs either the local stub or the trained model from the Hugging Face Hub:
+Each model component runs its trained model from the Hugging Face Hub:
 
-    MAKAN_NORMALIZER=stub|hf   MAKAN_NORMALIZER_MODEL=<hf repo id>    Flan-T5 (Varidhi)
-    MAKAN_STYLE=stub|hf        MAKAN_STYLE_MODEL=<hf repo id>         SingBERT (Varidhi)
-    MAKAN_TRACKER=stub|hf      MAKAN_TRACKER_ADAPTER=<hf repo id>     Qwen + LoRA [TRACK] (Nichole)
-    MAKAN_GENERATOR=stub|hf    MAKAN_GENERATOR_ADAPTER=<hf repo id>   Qwen + LoRA [REPLY] (Denise)
-                               MAKAN_BASE_LLM (default Qwen/Qwen2.5-1.5B-Instruct)
+    MAKAN_NORMALIZER_MODEL=<hf repo id>    Flan-T5 (Varidhi)
+    MAKAN_STYLE_MODEL=<hf repo id>         SingBERT (Varidhi)
+    MAKAN_TRACKER_ADAPTER=<hf repo id>     Qwen + LoRA [TRACK] (Nichole)
+    MAKAN_GENERATOR_ADAPTER=<hf repo id>   Qwen + LoRA [REPLY] (Denise)
+    MAKAN_BASE_LLM                         default Qwen/Qwen2.5-1.5B-Instruct
 
 The tracker and generator each have their own LoRA adapter on the one base model. The adapters
 default to the team's repos, makan-where-cs425/makan-qwen-track and makan-qwen-reply, the
@@ -65,30 +65,18 @@ DEFAULT_MODELS = {
 BASE_LLM = os.getenv("MAKAN_BASE_LLM", "Qwen/Qwen2.5-1.5B-Instruct")
 
 
-def impl(component: str) -> str:
-    """'stub' or 'hf' for one component."""
-    value = os.getenv(f"MAKAN_{component.upper()}", "stub").strip().lower()
-    if value not in ("stub", "hf"):
-        raise ValueError(f"MAKAN_{component.upper()} must be 'stub' or 'hf', got {value!r}")
-    return value
-
-
 def model_id(component: str) -> str:
-    """HF repo id for a component; fails loudly if it is switched to 'hf' without one."""
+    """HF repo id for a component; fails loudly if there is none."""
     var = MODEL_ENV[component]
     repo = os.getenv(var, "").strip() or DEFAULT_MODELS.get(component, "")
     if not repo:
-        raise RuntimeError(f"MAKAN_{component.upper()}=hf needs {var} set to a Hugging Face repo id")
+        raise RuntimeError(f"the {component} needs {var} set to a Hugging Face repo id")
     return repo
 
 
 def summary() -> dict:
-    """What each component is running, for /api/health and the UI."""
-    out = {}
-    for c in COMPONENTS:
-        mode = impl(c)
-        repo = os.getenv(MODEL_ENV[c], "").strip() or DEFAULT_MODELS.get(c, "")
-        out[c] = {"impl": mode, "model": repo if mode == "hf" else None}
-    if "hf" in (impl("tracker"), impl("generator")):
-        out["base_llm"] = BASE_LLM
+    """The model each component runs, for /api/health and the UI."""
+    out = {c: {"model": os.getenv(MODEL_ENV[c], "").strip() or DEFAULT_MODELS.get(c, "")}
+           for c in COMPONENTS}
+    out["base_llm"] = BASE_LLM
     return out

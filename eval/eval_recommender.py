@@ -12,8 +12,11 @@ sys.path.insert(0, str(ROOT / "backend"))
 
 from src import recommender  # noqa: E402
 from src.policy import MAX_ASKS, decide  # noqa: E402
-from src.recommender import filters, ranking, stub  # noqa: E402
+from src.recommender import filters, ranking  # noqa: E402
 from src.schemas import DialogueState  # noqa: E402
+
+# baseline: the same candidates, ranked by the quality score (Bayesian-averaged rating) alone
+RATING_ONLY = {part: (1.0 if part == "quality" else 0.0) for part in ranking.WEIGHTS}
 
 
 def load_gold(path):
@@ -43,17 +46,14 @@ def ndcg_at_k(ranked, relevant_ordered, k):
     return dcg / ideal if ideal else 0.0
 
 
-def recommend(state, query, k, weights=None, use_stub=False):
-    if use_stub:
-        places = stub.rank(state, query, None, k=k)
-    else:
-        places = ranking.rank(state, query, None, k=k, weights=weights)
+def recommend(state, query, k, weights=None):
+    places = ranking.rank(state, query, None, k=k, weights=weights)
     if not places:  # same fallback the policy uses
         places = decide(state, MAX_ASKS, recommender, query_norm=query).places
     return [p.place_id for p in places]
 
 
-def evaluate(gold, k, weights=None, use_stub=False):
+def evaluate(gold, k, weights=None):
     rows = recommender.load_places().set_index("place_id")
     p_sum = n_sum = h_sum = 0.0
     n_returned = n_bad = 0
@@ -61,7 +61,7 @@ def evaluate(gold, k, weights=None, use_stub=False):
         last = d["turns"][-1]
         state = DialogueState.from_dict(last["gold_state"])
         query = last.get("english_version") or last["raw"]
-        ranked = recommend(state, query, k, weights, use_stub)
+        ranked = recommend(state, query, k, weights)
         relevant = d["relevant_place_ids"]
         p_sum += precision_at_k(ranked, set(relevant), k)
         n_sum += ndcg_at_k(ranked, relevant, k)
@@ -92,9 +92,6 @@ def main():
 
     if args.places:
         recommender.use_places_csv(args.places)
-    # the stub baseline reads the same catalogue
-    stub.load_places = recommender.load_places
-    stub.area_centroids.cache_clear()
     gold = load_gold(args.gold)
     if not gold:
         print(f"no gold dialogues found in {args.gold}")
@@ -104,7 +101,7 @@ def main():
     if args.ablations:
         for part in ranking.WEIGHTS:
             show(f"without {part}", evaluate(gold, args.k, weights={part: 0.0}))
-        show("rating only (stub)", evaluate(gold, args.k, use_stub=True))
+        show("rating only", evaluate(gold, args.k, weights=RATING_ONLY))
 
 
 if __name__ == "__main__":

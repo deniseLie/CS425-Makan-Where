@@ -7,7 +7,6 @@ right after track().
 
 Two rules:
 - Values already in place-list form map to themselves, so translating twice changes nothing.
-  The stub tracker writes place-list values directly and keeps working.
 - Anything not in the tables is lowercased and passed through. The recommender then finds no
   match, and the policy's fallback handles it.
 """

@@ -4,10 +4,9 @@ A Singlish-aware conversational restaurant recommender for Singapore.
 Users chat the way they normally would ("korean lah, bugis side", "too far leh") and the
 system asks follow-up questions or recommends places, answering in the same style.
 
-University NLP project, 4 people. This repo is currently a **working stub pipeline**
-with a FastAPI backend and a React chat frontend: every model component sits behind a fixed
-function signature, and an environment variable switches it from the stub to the trained model
-on the Hugging Face Hub. Full project plan: [docs/plan.md](docs/plan.md).
+University NLP project, 4 people. A FastAPI backend runs the pipeline on the team's trained
+models from the Hugging Face Hub, with a React chat frontend; every model component sits behind
+a fixed function signature. Full project plan: [docs/plan.md](docs/plan.md).
 
 ## Pipeline (one user turn)
 
@@ -68,9 +67,12 @@ Needs Python 3.10+ and Node 18+ (tested with 3.12 and 22).
 ```bash
 python -m venv .venv
 # Windows:  .venv\Scripts\activate      macOS/Linux:  source .venv/bin/activate
-pip install -r backend/requirements.txt
+pip install -r backend/requirements-ml.txt   # API + the models' packages (torch, transformers, peft)
 cd frontend && npm install && cd ..
 ```
+
+The models need `HF_TOKEN` in a `.env` file at the repo root (see
+[Models](#models-hugging-face-hub)). The tests need only `backend/requirements.txt`.
 
 Development (two terminals):
 
@@ -82,7 +84,7 @@ cd frontend && npm run dev                                # UI on http://localho
 Other commands, from `backend/`:
 
 ```bash
-pytest                 # run tests
+pytest                 # run tests (offline: no model is loaded)
 python -m src.pipeline # plain terminal chat, no UI
 ```
 
@@ -93,7 +95,7 @@ above and open http://127.0.0.1:8000 - the backend serves `frontend/dist` itself
 
 | method | path | body / result |
 |---|---|---|
-| GET | `/api/health` | which implementation (stub / hf) and model each component runs |
+| GET | `/api/health` | which model each component runs |
 | POST | `/api/sessions` | → `{session_id}` |
 | POST | `/api/sessions/{id}/messages` | `{message}` → `{reply, debug}` (`debug` = state, action, tracker output) |
 | POST | `/api/sessions/{id}/reset` | clears the dialogue |
@@ -103,14 +105,14 @@ creating a new session).
 
 ## Interfaces and owners
 
-| module | function(s) | owner | stub behaviour now |
+| module | function(s) | owner | implementation |
 |---|---|---|---|
-| `backend/src/normalizer` | `normalize(text: str) -> str` | Varidhi | returns text unchanged |
-| `backend/src/style` | `detect_style(text: str) -> str` | Varidhi | particle/keyword heuristic |
-| `backend/src/tracker` | `track(history: list[Turn], prev: DialogueState) -> TrackerOutput` | Nichole | phrase tables from `values.py` + regex, carries over prev slots |
+| `backend/src/normalizer` | `normalize(text: str) -> str` | Varidhi | Flan-T5 (`hf.py`) |
+| `backend/src/style` | `detect_style(text: str) -> str` | Varidhi | SingBERT classifier (`hf.py`) |
+| `backend/src/tracker` | `track(history: list[Turn], prev: DialogueState) -> TrackerOutput` | Nichole | Qwen + LoRA `[TRACK]` (`hf.py`), values translated by `values.py` |
 | `backend/src/policy` | `decide(state, n_asked, recommender, query_norm="", user_latlon=None) -> PolicyAction`<br>`apply_tracker_output(prev, out) -> DialogueState` | Nichole | real rules (see `rules.py`) |
-| `backend/src/recommender` | `candidates(state, user_latlon=None) -> list[dict]`<br>`rank(state, query_norm, user_latlon, k=3) -> list[RankedPlace]`<br>`load_places()`, `place_names()` | Yuhanna | **real**: SQL filter + hybrid ranking (see below); `stub.py` = old rating-only baseline |
-| `backend/src/generator` | `generate(action: PolicyAction, style: str, user_text: str) -> str`<br>`template_reply(action, style)` | Denise | template replies in both styles |
+| `backend/src/recommender` | `candidates(state, user_latlon=None) -> list[dict]`<br>`rank(state, query_norm, user_latlon, k=3) -> list[RankedPlace]`<br>`load_places()`, `place_names()` | Yuhanna | SQL filter + hybrid ranking (see below) |
+| `backend/src/generator` | `generate(action: PolicyAction, style: str, user_text: str) -> str`<br>`template_reply(action, style)` | Denise | Qwen + LoRA `[REPLY]` (`hf.py`); `template_reply` is the guardrail's fallback |
 | `backend/src/pipeline.py` | `MakanSession.step(raw_text) -> (reply, debug)` | Denise | - |
 
 | `backend/src/api.py` | HTTP API for the frontend | Denise | - |
@@ -129,17 +131,17 @@ The `[TRACK]` prompt and answer follow the tracker dataset's layout: `User:` / `
 `System:` lines after `[TRACK]`, and an answer of the six slots plus `"feedback"` (`none`,
 `too_far`, `too_expensive`, `not_interested`). See `backend/src/tracker/hf.py`.
 
-## Plugging in a trained model (Hugging Face Hub)
+## Models (Hugging Face Hub)
 
-Each model module has `stub.py` and `hf.py`. `hf.py` already loads the model from the Hub; you
-only choose it with environment variables (see [`backend/src/config.py`](backend/src/config.py)):
+Each model module's `hf.py` loads its model from the Hub, the first time it runs. Environment
+variables pick the repo (see [`backend/src/config.py`](backend/src/config.py)):
 
-| component | switch | model repo variable | expected model |
-|---|---|---|---|
-| normalizer | `MAKAN_NORMALIZER=hf` | `MAKAN_NORMALIZER_MODEL` | Flan-T5 seq2seq; inputs prefixed with `normalizer.hf.PREFIX` |
-| style | `MAKAN_STYLE=hf` | `MAKAN_STYLE_MODEL` | text classifier with `id2label = {0: "english", 1: "singlish"}` |
-| tracker | `MAKAN_TRACKER=hf` | `MAKAN_TRACKER_ADAPTER` | LoRA adapter (+ tokenizer) for `MAKAN_BASE_LLM`, trained on `[TRACK]` |
-| generator | `MAKAN_GENERATOR=hf` | `MAKAN_GENERATOR_ADAPTER` | LoRA adapter (+ tokenizer) for `MAKAN_BASE_LLM`, trained on `[REPLY]` |
+| component | model repo variable | expected model |
+|---|---|---|
+| normalizer | `MAKAN_NORMALIZER_MODEL` | Flan-T5 seq2seq; inputs prefixed with `normalizer.hf.PREFIX` |
+| style | `MAKAN_STYLE_MODEL` | text classifier with `id2label = {0: "english", 1: "singlish"}` |
+| tracker | `MAKAN_TRACKER_ADAPTER` | LoRA adapter (+ tokenizer) for `MAKAN_BASE_LLM`, trained on `[TRACK]` |
+| generator | `MAKAN_GENERATOR_ADAPTER` | LoRA adapter (+ tokenizer) for `MAKAN_BASE_LLM`, trained on `[REPLY]` |
 
 The tracker and generator each have their own adapter on one base model: the base is loaded once,
 and each adapter the first time its component runs. `MAKAN_BASE_LLM` defaults to
@@ -155,21 +157,20 @@ The normalizer defaults to
 `pip install -r backend/requirements-ml.txt`.
 
 Put the settings in a `.env` file at the repo root (gitignored, never commit it). The backend
-reads its `MAKAN_*` and `HF_*` lines on start; a variable set in the shell wins. The tests always
-use the stubs. To run every trained model:
+reads its `MAKAN_*` and `HF_*` lines on start; a variable set in the shell wins. With the team's
+default repos, all it needs is the token:
 
 ```bash
 HF_TOKEN=hf_...
-MAKAN_NORMALIZER=hf
-MAKAN_STYLE=hf
-MAKAN_TRACKER=hf
-MAKAN_GENERATOR=hf
 ```
 
 Then start the backend as usual (`cd backend && uvicorn src.api:app --port 8000`, or
 `python -m src.pipeline`). The first start downloads Qwen (~3 GB) and the adapter.
 
-The UI header shows `stub` / `hf` for each component so you can see what is running.
+The UI header lists the components; hover over one to see the model it runs.
+
+The tests never load a model: `backend/tests/conftest.py` puts the offline stand-ins from
+`backend/tests/fakes.py` in place of `normalize`, `detect_style`, `track` and `generate`.
 
 **Training and serving must use the same prompt format.** Build training files with the
 functions in `hf.py`: `tracker.hf.build_prompt` / `build_target` for `[TRACK]`,
@@ -190,7 +191,7 @@ Rules when changing a module:
 1. **Keep the signature.** Inputs and outputs are the types in `backend/src/schemas.py`. If the
    contract needs to change, raise it with the team first - training data, gold labels and logs
    all use it.
-2. Keep `stub.py` working - the tests and anyone without a GPU use it.
+2. Keep `backend/tests/fakes.py` matching the interface - the tests run on it, not on the models.
 3. Load models lazily (on first call, cached) so `import src.pipeline` stays fast.
 4. **Add tests** in `backend/tests/`. Existing tests must still pass - they describe behaviour the
    rest of the pipeline relies on (e.g. "never return a non-halal place when dietary=halal").
@@ -204,17 +205,18 @@ makan-where/
 ├── backend/
 │   ├── src/
 │   │   ├── schemas.py         shared data contract
-│   │   ├── config.py          env vars: stub/hf switches, model repo ids, data paths
+│   │   ├── config.py          env vars: model repo ids, data paths
 │   │   ├── api.py             FastAPI app (Denise)
 │   │   ├── pipeline.py        one turn end to end (Denise)
 │   │   ├── llm.py             Qwen loader: one base, the tracker's and generator's LoRA adapters
-│   │   ├── normalizer/  style/    stub.py + hf.py (Varidhi)
+│   │   ├── normalizer/  style/    hf.py (Varidhi)
 │   │   ├── tracker/     policy/   (Nichole)
 │   │   ├── recommender/           (Yuhanna)
 │   │   └── generator/             (Denise)
-│   ├── tests/                 data/places_sample.csv: made-up places the tests run on
-│   ├── requirements.txt       API + stubs + tests
-│   └── requirements-ml.txt    + torch/transformers/peft for MAKAN_*=hf
+│   ├── tests/                 data/places_sample.csv: made-up places the tests run on;
+│   │                          fakes.py: offline stand-ins for the models
+│   ├── requirements.txt       API + tests
+│   └── requirements-ml.txt    + torch/transformers/peft to run the models
 ├── frontend/                  React + Vite chat UI with a pipeline-state panel
 ├── training/                  notebooks / scripts that train and push models to the HF Hub
 ├── data/                      [TRACK] datasets, master/places.csv + aliases.csv (format in data/README.md)
@@ -249,7 +251,7 @@ establishments, OpenStreetMap and the MUIS halal list (34,205 places: details an
 4. `recommender.warm_up()` loads everything up front (first fit ~3 s, cached after that).
 
 Evaluate against the gold dialogues (P@K, nDCG@K, hit@K, hard-constraint violation rate, plus
-ablations of each score part and the rating-only stub):
+ablations of each score part and a rating-only baseline):
 
 ```bash
 python eval/eval_recommender.py --k 3 --ablations

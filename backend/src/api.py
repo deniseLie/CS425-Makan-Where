@@ -1,6 +1,6 @@
 """HTTP API for the chat frontend.  Run from backend/:  uvicorn src.api:app --reload
 
-    GET  /api/health                      which implementation each component runs
+    GET  /api/health                      which model each component runs
     POST /api/sessions                    -> {session_id}
     POST /api/sessions/{id}/messages      {message} -> {reply, debug}
     POST /api/sessions/{id}/reset         clear the dialogue

@@ -21,7 +21,7 @@ Code is in `backend/src/generator/`. Commands run from `backend/`.
 
 1. **Turns and actions** (`drafts.py`). The synthetic `[TRACK]` dialogues are replayed through the
    real policy: each user turn's gold slots stand in for the tracker, are mapped to backend values
-   (`tracker.stub.ALIASES`, the place catalogue), critiques are applied with `apply_tracker_output`,
+   (`tracker.values.place_value`, the place catalogue), critiques are applied with `apply_tracker_output`,
    and `policy.decide` + the recommender pick the action. Values the catalogue lacks are swapped
    in both the state and the user's text. Turns that change nothing are skipped, and so are
    dialogues with a dietary need the recommender can't filter. Rows are capped per
@@ -62,8 +62,9 @@ Code is in `backend/src/generator/`. Commands run from `backend/`.
 - **Templated users.** The user turns come from a handful of templates per slot, so they are far
   less varied than real users. Evaluate the trained generator on hand-written dialogues
   (`eval/gold/`), not on this data.
-- **Style check.** The style check uses the keyword stub (`style/stub.py`), which misses Singlish
+- **Style check.** These replies were checked with the old keyword heuristic, which misses Singlish
   that relies only on grammar ("also ok", "can!"), so the Singlish replies lean on particles.
+  `check_reply` now asks the SingBERT style classifier instead.
 - **Policy quirks visible in the data** (left as they are):
   - After "too ex", a fallback that relaxes the budget can offer a pricier place.
   - `relaxed_slot` names only the last slot relaxed, though earlier ones were dropped too.

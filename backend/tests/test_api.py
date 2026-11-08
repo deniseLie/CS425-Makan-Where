@@ -11,10 +11,11 @@ def client(tmp_path, monkeypatch):
     return TestClient(app)
 
 
-def test_health_reports_stubs(client):
+def test_health_reports_the_models(client):
     body = client.get("/api/health").json()
     assert body["status"] == "ok"
-    assert all(body["components"][c]["impl"] == "stub" for c in config.COMPONENTS)
+    assert all(body["components"][c]["model"] == config.model_id(c) for c in config.COMPONENTS)
+    assert body["components"]["base_llm"] == config.BASE_LLM
 
 
 def test_conversation_and_reset(client):
@@ -35,16 +36,11 @@ def test_bad_requests(client):
     assert client.post(f"/api/sessions/{sid}/messages", json={"message": "x" * 1001}).status_code == 422
 
 
-def test_hf_without_model_id_fails_clearly(monkeypatch):
-    monkeypatch.setenv("MAKAN_STYLE", "hf")
+def test_no_model_id_fails_clearly(monkeypatch):
     monkeypatch.delenv("MAKAN_STYLE_MODEL", raising=False)
     monkeypatch.delitem(config.DEFAULT_MODELS, "style")
-    assert config.impl("style") == "hf"
     with pytest.raises(RuntimeError, match="MAKAN_STYLE_MODEL"):
         config.model_id("style")
-    monkeypatch.setenv("MAKAN_STYLE", "bert")
-    with pytest.raises(ValueError):
-        config.impl("style")
 
 
 def test_tracker_and_generator_have_their_own_adapters(monkeypatch):
