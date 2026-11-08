@@ -232,9 +232,11 @@ establishments, OpenStreetMap and the MUIS halal list (34,205 places: details an
    (`kbbq` → `korean`, `amk` → `ang mo kio`, `bugis side` → `downtown core`, `tapau` → `takeaway`,
    small typos too). It agrees with `values.py` and only adds to it.
 2. **Candidates** (`filters.py`): one parameterized SQL query (in-memory SQLite) built only from
-   filled slots: cuisine, area / region, radius from the user or the area's centre, dietary
+   filled slots: cuisine, area / region, radius from the spot the user named ("near Bras Basah", kept in
+   `state.landmark`), else the user, else the area's centre, dietary
    (halal, vegetarian, no beef), setting (`aircon` keeps places whose aircon is unknown),
-   opening hours for `time` (unknown hours are kept), budget cap, excluded places.
+   opening hours for `time` (unknown hours are kept), budget cap (checked
+   against the middle of the price range, the "~$N" the reply shows), excluded places.
 3. **Ranking** (`ranking.py`): `score = 0.35·content + 0.20·soft + 0.30·quality + 0.15·distance`
    - content: TF-IDF (words + character n-grams) similarity between the request (normalized text
      + slot values + alias expansions) and the place's name / cuisine / tags / description.

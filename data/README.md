@@ -48,7 +48,7 @@ python data/build_places.py         # master/places_nea.csv (+ optional data/raw
    - `cuisine` from name keywords and known brands, only when exactly one cuisine matches
      (~1,100 places so far); `tags` keeps finer words (sushi, prata, chicken rice, ...).
    - `vegetarian` when the name says vegetarian / vegan / veggie.
-   - `price_min` / `price_max`: a rough band per setting (hawker $3-8 ... restaurant $15-35),
+   - `price_min` / `price_max`: a rough band per setting (hawker $3-7 ... restaurant $15-35),
      marked `price_source = estimate`; the reply shows these as "~$6 (est.)".
    - `description`: one generated sentence per place, used by the content ranker.
 3. **Enriches from optional files in `data/raw/`** (skipped if missing; matched by location within

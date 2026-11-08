@@ -245,7 +245,7 @@ def tags_of(name):
 
 # rough price band (SGD per person) per setting; only used when no real price is known
 PRICE_BAND = {
-    "hawker": (3, 8), "food court": (5, 10), "takeaway": (4, 10), "cafe": (8, 20), "restaurant": (15, 35),
+    "hawker": (3, 7), "food court": (5, 10), "takeaway": (4, 10), "cafe": (8, 20), "restaurant": (15, 35),
 }
 
 SETTING_WORDS = {"hawker": "hawker stall", "food court": "food court stall", "takeaway": "takeaway kiosk",
@@ -728,14 +728,26 @@ def _google_cuisine(p):
     return c if c in CUISINE_WORDS else cuisine_of(f"{p.get('category', '')} {p['name']}")
 
 
+GOOGLE_NAME_MIN = 0.5  # name similarity a Google place needs to merge into a place with a real name
+
+
 def apply_google(df, g):
-    """Merge Google rows into matching places. Returns the match index per Google row."""
+    """Merge Google rows into matching places. Returns the match index per Google row.
+    A Google place only merges into a place with a real name (OSM, MUIS, Google, a company
+    licensee) when the names roughly match or the unit number is the same; otherwise a neighbour's cuisine, rating and price
+    would be copied onto the wrong shop. Places named after their address have no real name, so
+    location alone is enough there. Rejected rows get -1 and become places of their own."""
     idx = match_points(df, g)
     for i, j in enumerate(idx):
         if j < 0:
             continue
         p = g.iloc[i]
         shop = LEGAL_RX.sub(" ", str(p["name"])).strip(" .,-")
+        same_unit = bool(unit_key(p.get("unit", ""))) and unit_key(p.get("unit", "")) == unit_key(df.at[j, "unit"])
+        similar = max(name_sim(shop, df.at[j, "name"]), name_sim(shop, df.at[j, "licensee"])) >= GOOGLE_NAME_MIN
+        if df.at[j, "name_source"] != "address" and not (similar or same_unit):
+            idx[i] = -1
+            continue
         if df.at[j, "name_source"] in ("address", "licensee"):
             if name_sim(shop, df.at[j, "licensee"]) < 0.5:  # a different business from the licensee
                 df.at[j, "cuisine"] = ""
