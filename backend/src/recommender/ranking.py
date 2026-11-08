@@ -122,7 +122,7 @@ def _pick(df: pd.DataFrame, k: int) -> pd.DataFrame:
     return df.loc[chosen]
 
 
-def reasons(row) -> list[str]:
+def reasons(row, capped: bool = False) -> list[str]:
     """Matched features for the reply ("halal", "~$5", "300 m away", "4.3 stars").
     Blank columns are left out; estimated prices say so."""
     out = []
@@ -130,7 +130,9 @@ def reasons(row) -> list[str]:
         out.append("halal")
     if row["vegetarian"]:
         out.append("vegetarian")
-    if pd.notna(row["price_min"]) and pd.notna(row["price_max"]):
+    if capped and (upper := filters.price_upper(row)) is not None:
+        out.append(f"~${upper:g} (upper estimate)")
+    elif pd.notna(row["price_min"]) and pd.notna(row["price_max"]):
         price = f"~${(row['price_min'] + row['price_max']) / 2:.0f}"
         out.append(price + (" (est.)" if row.get("price_source") == "estimate" else ""))
     d = row["dist_km"]
@@ -147,6 +149,7 @@ def rank(state: DialogueState, query_norm: str = "", user_latlon=None, k: int = 
     if df.empty:
         return []
     top = _pick(score(df, state, query_norm, weights), k)
+    capped = filters.budget_cap(state) is not None
     return [RankedPlace(place_id=r["place_id"], name=r["name"], score=round(float(r["score"]), 4),
-                        reasons=reasons(r))
+                        reasons=reasons(r, capped))
             for _, r in top.iterrows()]

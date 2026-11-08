@@ -27,6 +27,9 @@ from src.tracker.values import (CUISINES, LANDMARKS, PLANNING_AREAS, REGIONS, TA
     ("budget", "below $5", "<=5"),
     ("budget", "below $10", "<=10"),
     ("budget", "$10-20", "<=20"),
+    ("budget", "$15", "<=15"),
+    ("budget", "max $8", "<=8"),
+    ("budget", "$8–$10.50", "<=10.5"),
     ("budget", "above $20", ANY),
     # dietary
     ("dietary", "halal", "halal"),

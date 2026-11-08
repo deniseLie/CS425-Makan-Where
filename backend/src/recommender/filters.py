@@ -11,8 +11,7 @@ table. Hard constraints:
     dietary   halal = 1 | vegetarian = 1 | "no beef": nothing beef-named
     setting   setting = ?;  "aircon": not known to be open-air (unknown is kept)
     time      open at that time (places with unknown hours are kept)
-    budget    middle price <= cap (cap from budget_max or "<=N"); the middle of price_min and
-              price_max, or price_min when there is no top price. It is the "~$N" the reply shows
+    budget    top listed estimate <= cap (cap from budget_max or the budget slot)
     excluded  place_id NOT IN (...)
 
 Every value goes in as a ? parameter, never pasted into the SQL text.
@@ -21,7 +20,6 @@ Every value goes in as a ? parameter, never pasted into the SQL text.
 from __future__ import annotations
 
 import math
-import re
 from datetime import datetime
 from typing import Optional
 
@@ -31,9 +29,18 @@ from src.recommender import db
 from src.recommender.aliases import canonical, landmark, landmark_point
 from src.recommender.hours import check_time
 from src.schemas import ANY, UNKNOWN, DialogueState
+from src.tracker.values import parse_budget
 
 BEEF_WORDS = ("beef", "gyu", "wagyu", "steak", "yakiniku")
-PRICE_MID_SQL = "(price_min + IFNULL(price_max, price_min)) / 2.0"
+PRICE_UPPER_SQL = "COALESCE(price_max, price_min)"
+
+
+def price_upper(place) -> Optional[float]:
+    """Highest listed estimate, including catalogues with only one price field."""
+    for price in (place.get("price_max"), place.get("price_min")):
+        if pd.notna(price):
+            return price
+    return None
 
 
 def price_mid(place) -> Optional[float]:
@@ -56,8 +63,7 @@ def filled(value: str) -> bool:
 def budget_cap(state: DialogueState, slots: Optional[dict] = None) -> Optional[float]:
     if state.budget_max is not None:
         return state.budget_max
-    m = re.match(r"<=\s*(\d+(?:\.\d+)?)", (slots or state.slots)["budget"])
-    return float(m.group(1)) if m else None
+    return parse_budget((slots or state.slots)["budget"])
 
 
 def landmark_of(state: DialogueState) -> Optional[str]:
@@ -113,7 +119,7 @@ def build_query(state: DialogueState, user_latlon=None, now: Optional[datetime] 
             params.append(t)
     cap = budget_cap(state, s)
     if cap is not None:
-        where.append(f"{PRICE_MID_SQL} <= ?")
+        where.append(f"{PRICE_UPPER_SQL} <= ?")
         params.append(cap)
     if state.excluded_place_ids:
         where.append(f"place_id NOT IN ({', '.join('?' * len(state.excluded_place_ids))})")
@@ -170,8 +176,8 @@ def violations(state: DialogueState, place: dict) -> list[str]:
     elif filled(s["setting"]) and s["setting"] != "aircon" and place.get("setting") != s["setting"]:
         bad.append("setting")
     cap = budget_cap(state, s)
-    mid = price_mid(place)
-    if cap is not None and not (mid is not None and mid <= cap + 1e-9):
+    upper = price_upper(place)
+    if cap is not None and not (upper is not None and upper <= cap + 1e-9):
         bad.append("budget")
     if place.get("place_id") in state.excluded_place_ids:
         bad.append("excluded")

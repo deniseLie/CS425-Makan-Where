@@ -48,10 +48,17 @@ def test_fallback_when_no_candidates():
     assert a.places
 
 
-def test_fallback_relaxes_budget_last():
+def test_fallback_keeps_budget():
     s = DialogueState(slots={"cuisine": "western", "area": "river valley", "budget": "<=5"}, budget_max=5.0)
     a = decide(s, 1, recommender)
-    assert a.kind == "fallback_recommend" and a.relaxed_slot == "budget" and a.places
+    assert a.kind == "fallback_recommend" and a.relaxed_slot == "budget" and not a.places
+
+
+def test_unparseable_budget_update_clears_previous_cap():
+    prev = DialogueState(slots={"budget": "<=20"}, budget_max=20)
+    updated = apply_tracker_output(prev, TrackerOutput(slots={"budget": "cheap"}))
+    assert updated.budget_max is None
+    assert decide(updated, 3, recommender).ask_slot == "budget"
 
 
 def test_fallback_with_nothing_at_all():

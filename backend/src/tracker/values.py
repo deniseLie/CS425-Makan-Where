@@ -66,7 +66,7 @@ TABLES: dict[str, dict[str, str]] = {
     "cuisine": {**{c: c for c in CUISINES}, **DISHES},
     "area": {**{a: a for a in PLANNING_AREAS}, **{r: r for r in REGIONS},
              "northeast": "north-east", "north east": "north-east", **LANDMARKS},
-    "budget": {"below $5": "<=5", "below $10": "<=10", "$10-20": "<=20", "above $20": ANY},
+    "budget": {"above $20": ANY},
     # vegan / no pork -> the closest value the place list can check; no beef has no filter yet
     "dietary": {"halal": "halal", "muslim": "halal", "no pork": "halal",
                 "vegetarian": "vegetarian", "veggie": "vegetarian", "vegan": "vegetarian",
@@ -80,6 +80,86 @@ TABLES: dict[str, dict[str, str]] = {
 
 # "19:30", "7pm", "7.30pm", "12.30", "8 am": minutes or am/pm (or both) make it a clock time.
 _CLOCK_RX = re.compile(r"(\d{1,2})(?:[:.](\d{2}))?\s*([ap])?\.?m?\.?")
+
+BUDGET_UNCLEAR = "budget amount needed"
+_AMOUNT = r"\d+(?:\.\d{1,2})?(?!\w|[.,]\d)"
+_BUDGET_AMOUNT = (
+    rf"(?:s?\$\s*)?(?P<first>{_AMOUNT})"
+    rf"(?:\s*(?:[-–—]|\bto\b)\s*(?:s?\$\s*)?(?P<last>{_AMOUNT}))?"
+    r"(?:\s*dollars?\b)?"
+)
+_BUDGET_PREFIX = (
+    r"<=\s*|\b(?:max(?:imum)?(?:\s+of)?|at most|up to|under|below|"
+    r"no more than|less than|within|don['’]t go over|budget(?:\s+(?:is|of|about|around|to))?)\s*"
+)
+_BUDGET_VALUE = re.compile(rf"(?:{_BUDGET_PREFIX})?{_BUDGET_AMOUNT}")
+_BUDGET_MENTION = re.compile(
+    rf"(?:{_BUDGET_PREFIX}|(?=s?\$)|(?=\d+(?:\.\d+)?\s*dollars?\b)){_BUDGET_AMOUNT}"
+)
+_NO_CAP = re.compile(
+    r"\b(?:any budget|no (?:budget|price) (?:limit|cap)|no limit on (?:the )?(?:budget|price)|"
+    r"(?:budget|price) (?:does(?:n't| not) matter|dun matter|is flexible)|"
+    r"(?:ignore|remove|drop) (?:the |my )?budget(?: cap)?)\b"
+)
+_UNCLEAR_BUDGET = re.compile(r"\b(?:budget|cheap|cheaper|affordable|inexpensive|max(?:imum)? spend)\b")
+
+
+def _budget_cap(match: re.Match) -> float:
+    return float(match["last"] or match["first"])
+
+
+def parse_budget(value: str) -> float | None:
+    match = _BUDGET_VALUE.fullmatch(value.strip().lower())
+    return _budget_cap(match) if match else None
+
+
+def budget_update(text: str, answering_budget: bool = False) -> str | None:
+    """Recognize a budget instruction in the latest turn, independent of tracker state."""
+    value = text.lower().strip().rstrip(".!?")
+    if _NO_CAP.search(value) or (
+        answering_budget and value in {"any", "anything", "no limit", "no preference", "no need"}
+    ):
+        return ANY
+    amounts = list(_BUDGET_MENTION.finditer(value))
+    amounts = [
+        match for match in amounts
+        if not re.match(r"\s*(?:minutes?|mins?|hours?|hrs?|km|metres?|meters?|pax|people)\b",
+                        value[match.end():])
+    ]
+    if len(amounts) == 1:
+        match = amounts[0]
+        # A minimum or an amount of extra spending needs clarification.
+        if re.search(r"\b(?:at least|above|over|more than|another|extra)\s*$", value[:match.start()]) \
+                or re.match(r"\s*(?:more|extra|or more)\b", value[match.end():]):
+            return BUDGET_UNCLEAR
+        return f"<={_budget_cap(match):g}"
+    if answering_budget:
+        cap = parse_budget(value)
+        if cap is not None:
+            return f"<={cap:g}"
+    if amounts or "$" in value or answering_budget or _UNCLEAR_BUDGET.search(value):
+        return BUDGET_UNCLEAR
+    return None
+
+
+_NO_DIETARY = re.compile(r"(?:no dietary (?:requirements|needs|restrictions)|no restrictions?)(?: lah)?")
+_HALAL_OPTIONAL = re.compile(
+    r"(?:non[- ]halal (?:is )?(?:fine|okay|ok|can|also can)|"
+    r"(?:no need for|no need|don['’]t need|dun need) halal(?: also can)?)(?: lah)?"
+)
+
+
+def dietary_update(text: str, answering_dietary: bool, previous: str) -> str | None:
+    value = text.lower().strip().rstrip(".!?")
+    if _NO_DIETARY.fullmatch(value) or (
+        answering_dietary and re.fullmatch(r"(?:no|nope|none|no need|no thanks)(?: lah)?", value)
+    ):
+        return ANY
+    if _HALAL_OPTIONAL.fullmatch(value):
+        return ANY if previous in {UNKNOWN, ANY, "halal", "non-halal"} else previous
+    if re.fullmatch(r"(?:(?:i )?(?:only )?want |only )?non[- ]halal(?: (?:food|places?))?(?: only)?", value):
+        return "non-halal"
+    return None
 
 
 def clock_time(value: str) -> str | None:
@@ -119,6 +199,14 @@ def place_value(slot: str, value: str) -> str:
     if v.upper() in (UNKNOWN, ANY):
         return v.upper()
     low = v.lower()
+    if slot == "budget":
+        if _NO_CAP.fullmatch(low):
+            return ANY
+        cap = parse_budget(low)
+        if cap is not None:
+            return f"<={cap:g}"
+    if slot == "dietary":
+        return dietary_update(low, False, UNKNOWN) or TABLES[slot].get(low, low)
     if slot == "time":
         clock = clock_time(low)
         if clock:

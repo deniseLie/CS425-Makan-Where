@@ -6,14 +6,10 @@ import re
 
 from src.schemas import ANY, REQUIRED_SLOTS, SOFT_SLOTS, UNKNOWN, DialogueState, TrackerOutput, Turn
 
-from .values import TABLES
+from .values import TABLES, budget_update
 
-# Stub-only phrases on top of the translator's tables.
-EXTRA_PHRASES: dict[str, dict[str, str]] = {
-    "budget": {"cheap": "<=8", "budget": "<=8", "affordable": "<=8"},
-}
 PHRASES: dict[str, dict[str, str]] = {
-    slot: {**TABLES.get(slot, {}), **EXTRA_PHRASES.get(slot, {})} for slot in TABLES
+    slot: table for slot, table in TABLES.items() if slot != "budget"
 }
 
 ANY_PHRASES = ["anything also can", "anything can", "any also can", "anything",
@@ -24,7 +20,6 @@ CRITIQUE_PHRASES = {
     "not_interested": ["dun want this one", "don't want this one", "dont want this one",
                        "not this one", "next one", "something else"],
 }
-_BUDGET_RX = re.compile(r"(?:under|below|less than|within|<=?|max)\s*\$?\s*(\d+)", re.IGNORECASE)
 
 
 def _has(text: str, phrase: str) -> bool:
@@ -45,9 +40,9 @@ def track(history: list[Turn], prev: DialogueState) -> TrackerOutput:
                 mentioned = True
                 break
 
-    m = _BUDGET_RX.search(text)
-    if m:
-        slots["budget"] = f"<={m.group(1)}"
+    budget = budget_update(turn.raw)
+    if budget is not None:
+        slots["budget"] = budget
         mentioned = True
 
     critique = next((c for c, ps in CRITIQUE_PHRASES.items() if any(_has(text, p) for p in ps)), None)

@@ -146,12 +146,12 @@ def test_cheap_prefers_lower_prices(tmp_places):
     assert recommender.rank(DialogueState(slots={"budget": "atas"}), "", None, k=1)[0].place_id == "HIGH"
 
 
-def test_budget_gives_partial_credit(tmp_places):
+def test_budget_filters_places_over_cap_before_ranking(tmp_places):
     tmp_places([dict(place_id="FITS", name="Fits", price_min=5, price_max=9),
                 dict(place_id="PART", name="Partly", price_min=6, price_max=13)])
     s = DialogueState(slots={"budget": "<=10"}, budget_max=10)
     df = ranking.score(filters.filtered(s), s).set_index("place_id")
-    assert df.loc["FITS", "s_soft"] == 1.0 and 0 < df.loc["PART", "s_soft"] < 1
+    assert list(df.index) == ["FITS"] and df.loc["FITS", "s_soft"] == 1.0
 
 
 def test_distance_decay_prefers_nearer(tmp_places):
@@ -345,26 +345,26 @@ def test_real_places_hard_constraints_never_violated(real_places):
                 assert row["price_min"] <= cap
 
 
-# --------------------------------------------------------------------------- budget: middle price
+# --------------------------------------------------------------------------- budget: upper price
 
-def test_budget_checks_the_middle_price(tmp_places):
+def test_budget_checks_the_upper_price(tmp_places):
     tmp_places([dict(place_id="WIDE", name="One To Ten", price_min=1, price_max=10),      # ~$6
                 dict(place_id="CHEAP", name="Three To Six", price_min=3, price_max=6),    # ~$4
                 dict(place_id="NOTOP", name="Only Min", price_min=5, price_max=None),     # $5
                 dict(place_id="NOPRICE", name="No Price", price_min=None, price_max=None)])
     s = DialogueState(slots={"budget": "<=5"}, budget_max=5)
     ids = {c["place_id"] for c in recommender.candidates(s)}
-    assert ids == {"CHEAP", "NOTOP"}
+    assert ids == {"NOTOP"}
     # the price the reply shows is never above the budget
     for p in recommender.rank(s, "", None, k=5):
         shown = [r for r in p.reasons if r.startswith("~$")]
         assert not shown or float(shown[0][2:].split()[0]) <= 5
 
 
-def test_violations_use_the_middle_price():
+def test_violations_use_the_upper_price():
     s = DialogueState(slots={"budget": "<=5"}, budget_max=5)
     assert "budget" in filters.violations(s, {"price_min": 1, "price_max": 10})
-    assert "budget" not in filters.violations(s, {"price_min": 3, "price_max": 6})
+    assert "budget" in filters.violations(s, {"price_min": 3, "price_max": 6})
     assert "budget" not in filters.violations(s, {"price_min": 5, "price_max": float("nan")})
     assert "budget" in filters.violations(s, {"price_min": None, "price_max": None})
 

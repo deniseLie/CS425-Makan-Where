@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
@@ -12,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from src.config import PLACES_CSV
+from src.recommender.filters import budget_cap
 from src.schemas import ANY, UNKNOWN, DialogueState, RankedPlace
 
 
@@ -49,13 +49,6 @@ def dietary_labels(df: pd.DataFrame) -> np.ndarray:
     return np.select([df["halal"], df["vegetarian"]], ["halal", "vegetarian"], default="none")
 
 
-def budget_cap(state: DialogueState) -> Optional[float]:
-    if state.budget_max is not None:
-        return state.budget_max
-    m = re.match(r"<=\s*(\d+(?:\.\d+)?)", state.slots["budget"])
-    return float(m.group(1)) if m else None
-
-
 def haversine_km(a: tuple[float, float], b: tuple[float, float]) -> float:
     lat1, lon1, lat2, lon2 = map(math.radians, (*a, *b))
     h = math.sin((lat2 - lat1) / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin((lon2 - lon1) / 2) ** 2
@@ -89,7 +82,7 @@ def _filtered(state: DialogueState, user_latlon=None) -> pd.DataFrame:
     # time: no opening-hours column yet -> no condition
     cap = budget_cap(state)
     if cap is not None:
-        df = df[df["price_min"] <= cap]
+        df = df[df["price_max"].fillna(df["price_min"]) <= cap]
     if state.excluded_place_ids:
         df = df[~df["place_id"].isin(state.excluded_place_ids)]
 

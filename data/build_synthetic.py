@@ -13,7 +13,7 @@ Writes data/dialogues_synth_train.jsonl and data/dialogues_synth_dev.jsonl
 Value conventions (agree with D):
   - cuisine: canonical cuisine OR a dish name ("chicken rice"); D's alias table maps dishes.
   - area   : exactly what the user said: pool area, landmark alias ("Bugis"), or region ("east").
-  - budget : below $5 | below $10 | $10-20 | above $20
+  - budget : an exact amount or range, "cheap" when no amount was given, or ANY.
   - time   : now | breakfast | lunch | dinner | late night   ("supper" -> late night)
              or an exact time as 24-hour HH:MM ("7pm can?" -> 19:00). An exact time wins
              over a meal word ("dinner around 7" -> 19:00).
@@ -64,16 +64,6 @@ REGION_T = [
     ("anywhere {a} lor", "Anywhere in the {a} is fine."),
 ]
 VALUE_T = {
-    "budget": {
-        "below $10": [("cheap cheap pls", "Something cheap, please."),
-                      ("cheap one can", "A cheap place is fine.")],
-        "below $5": [("below five dollar", "Below five dollars."),
-                     ("under $5 can?", "Is under $5 possible?")],
-        "$10-20": [("ten to twenty dollar ok", "Ten to twenty dollars is fine."),
-                   ("budget about $15 lah", "My budget is about $15.")],
-        "above $20": [("can atas one", "It can be a fancier place."),
-                      ("dun mind pay more", "I do not mind paying more.")],
-    },
     "dietary": {
         "halal": [("must be halal hor", "It must be halal."),
                   ("halal only ah", "Halal only, please."),
@@ -85,6 +75,7 @@ VALUE_T = {
                     ("no beef pls", "No beef, please.")],
         "no pork": [("no pork one", "No pork, please."),
                     ("cannot pork lah", "I cannot eat pork.")],
+        "non-halal": [("non-halal only", "I only want non-halal food.")],
     },
     "setting": {
         "hawker": [("hawker centre can", "A hawker centre is fine."),
@@ -127,8 +118,11 @@ MEAL_TIMES = [v for v in VALUE_T["time"] if ":" not in v]
 ANY_T = {
     "cuisine": [("anything also can", "Anything is fine."), ("dun mind what food", "I do not mind what food.")],
     "area": [("anywhere also can", "Anywhere is fine."), ("location dun matter", "Location does not matter.")],
-    "budget": [("price dun matter", "Price does not matter.")],
-    "dietary": [("no restriction lah", "I have no dietary restrictions."), ("dun need halal also can", "Halal is not needed.")],
+    "budget": [("price dun matter", "Price does not matter."), ("any budget can", "Any budget is fine."),
+               ("no budget limit", "There is no budget limit.")],
+    "dietary": [("no restriction lah", "I have no dietary restrictions."),
+                ("dun need halal also can", "Halal is not needed."),
+                ("non-halal also can", "Non-halal is fine.")],
     "setting": [("hawker or aircon also can", "Any setting is fine."), ("dun care where sit", "I do not care where we sit.")],
     "time": [("anytime also can", "Any time is fine.")],
 }
@@ -160,6 +154,9 @@ def sample_value(slot, rng):
         return rng.choice(AREAS) if r < 0.6 else rng.choice(ALIASES) if r < 0.85 else rng.choice(REGIONS)
     if slot == "time":
         return rng.choice(EXACT_TIMES if rng.random() < 1 / 3 else MEAL_TIMES)
+    if slot == "budget":
+        amount = rng.randint(3, 40) + rng.choice([0, 0, 0.5])
+        return rng.choice([f"${amount:g}", f"${amount:g}-${amount + rng.randint(1, 5):g}", "cheap"])
     return rng.choice(list(VALUE_T[slot]))
 
 
@@ -172,6 +169,14 @@ def phrase(slot, val, rng):
     if slot == "area":
         sg, en = rng.choice(REGION_T if val in REGIONS else AREA_T)
         return sg.format(a=val), en.format(a=val)
+    if slot == "budget":
+        if val == "cheap":
+            return "cheap cheap pls", "Something cheap, please."
+        if "-" in val:
+            return f"{val} can", f"My budget is {val}."
+        return rng.choice([(f"max {val} lah", f"At most {val}."),
+                           (f"under {val} can?", f"Can you find something under {val}?"),
+                           (f"budget {val}", f"My budget is {val}.")])
     return rng.choice(VALUE_T[slot][val])
 
 
@@ -179,6 +184,8 @@ def answer_phrase(slot, val, rng):
     """Reply to a system question: often just the bare value."""
     if val != ANY and slot in REQUIRED and rng.random() < 0.4:
         return (f"{val.lower() if slot == 'cuisine' else val} lor", f"{val}, please.")
+    if slot == "dietary" and val == ANY:
+        return rng.choice([("no", "No."), ("no need", "No need."), ("none", "None.")])
     return phrase(slot, val, rng)
 
 
@@ -244,7 +251,7 @@ def make_dialogue(idx, rng, english):
 
     # 4. revision ("actually Chinese not Korean")
     if rng.random() < 0.3:
-        cands = [s for s in ("cuisine", "area") if state[s] not in (UNKNOWN, ANY)]
+        cands = [s for s in ("cuisine", "area", "budget") if state[s] not in (UNKNOWN, ANY)]
         if cands:
             s = rng.choice(cands)
             old, new = state[s], sample_value(s, rng)
@@ -252,7 +259,10 @@ def make_dialogue(idx, rng, english):
                 if new not in (old, ANY):
                     break
                 new = sample_value(s, rng)
-            if new not in (old, ANY):
+            if new not in (old, ANY) and s == "budget":
+                sg, en = phrase(s, new, rng)
+                user([(f"actually {sg}", f"Actually, {en}")], {s: new})
+            elif new not in (old, ANY):
                 low = (lambda v: v.lower()) if s == "cuisine" else (lambda v: v)
                 sg_t, en_t = REVISE_T[s]
                 user([(sg_t.format(new=low(new), old=low(old)), en_t.format(new=new, old=old))],
@@ -264,6 +274,14 @@ def make_dialogue(idx, rng, english):
         if soft:
             s = rng.choice(soft)
             user([phrase(s, ANY, rng)], {s: ANY})
+
+    if state["budget"] == "cheap":
+        system("What's your maximum budget per person?")
+        amount = f"${rng.randint(3, 20)}"
+        user([(amount, amount)], {"budget": amount})
+    if state["dietary"] == UNKNOWN and rng.random() < 0.15:
+        system("Do you have any dietary requirements?")
+        user([answer_phrase("dietary", ANY, rng)], {"dietary": ANY})
 
     # 6. recommendation + feedback
     def recommend():
@@ -278,6 +296,15 @@ def make_dialogue(idx, rng, english):
     return rows
 
 
+def build_splits(n=1500, english_share=0.25, seed=0):
+    rng = random.Random(seed)
+    split_rows = {"train": [], "dev": []}
+    for i in range(n):
+        rows = make_dialogue(i, rng, english=rng.random() < english_share)
+        split_rows["dev" if i % 10 == 0 else "train"] += rows
+    return split_rows
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--n", type=int, default=1500, help="number of dialogues")
@@ -286,14 +313,10 @@ def main():
     ap.add_argument("--out", default="data")
     ap.add_argument("--seed", type=int, default=0)
     a = ap.parse_args()
-    rng = random.Random(a.seed)
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
 
-    split_rows = {"train": [], "dev": []}
-    for i in range(a.n):
-        rows = make_dialogue(i, rng, english=rng.random() < a.english_share)
-        split_rows["dev" if i % 10 == 0 else "train"] += rows
+    split_rows = build_splits(a.n, a.english_share, a.seed)
     for sp, rows in split_rows.items():
         with open(out / f"dialogues_synth_{sp}.jsonl", "w") as fh:
             for r in rows:

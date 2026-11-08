@@ -26,11 +26,12 @@ FEEDBACK = {"none", "too_far", "too_expensive", "not_interested"}
 ALLOWED = {
     "cuisine": set(CUISINES) | set(DISHES) | {label for label, _ in CUISINE_MAP.values()},
     "area": {a for pool in AREA_POOL.values() for a in pool} | set(ALIASES) | set(REGIONS),
-    "budget": {"below $5", "below $10", "$10-20", "above $20"},
-    "dietary": {"halal", "vegetarian", "vegan", "no beef", "no pork"},
+    "dietary": {"halal", "vegetarian", "vegan", "no beef", "no pork", "non-halal"},
     "setting": {"hawker", "aircon", "cafe", "food court", "restaurant", "takeaway"},
 }
 TIME_RE = re.compile(r"breakfast|lunch|dinner|late night|now|([01]\d|2[0-3]):[0-5]\d")
+BUDGET_RE = re.compile(r"cheap|above \$20|(?:below )?\$\d+(?:\.\d{1,2})?(?:-\$?\d+(?:\.\d{1,2})?)?")
+PATTERNS = {"time": TIME_RE, "budget": BUDGET_RE}
 # Leftover Cambridge contact details (deliberately looser than convert_final.py's).
 CAMBRIDGE_RE = re.compile(r"\b0?1\s?223[\s-]?\d|\+44|\b0\d{9,11}\b|\bc\.?\s?b\.?\s?\d|\bpe\d",
                           re.IGNORECASE)
@@ -68,7 +69,7 @@ def check_output(out):
         value = out[slot]
         if value in ("UNKNOWN", "ANY"):
             continue
-        if not (TIME_RE.fullmatch(value) if slot == "time" else value in ALLOWED[slot]):
+        if not (PATTERNS[slot].fullmatch(value) if slot in PATTERNS else value in ALLOWED[slot]):
             yield slot, repr(value)
 
 

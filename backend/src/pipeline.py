@@ -18,10 +18,11 @@ from src import recommender
 from src.generator import generate, template_reply
 from src.normalizer import normalize
 from src.policy import apply_tracker_output, decide
-from src.schemas import DialogueState, PolicyAction, Turn
+from src.policy.rules import above_budget
+from src.schemas import UNKNOWN, DialogueState, PolicyAction, TrackerOutput, Turn
 from src.style import detect_style
 from src.tracker import track
-from src.tracker.values import TABLES, translate
+from src.tracker.values import BUDGET_UNCLEAR, TABLES, budget_update, dietary_update, translate
 
 LOG_DIR = Path(__file__).resolve().parents[1] / "logs"
 
@@ -92,9 +93,38 @@ class MakanSession:
         normalized = normalize(raw_text)
         style = detect_style(raw_text)
         turn = Turn(raw=raw_text, normalized=normalized, style=style)
+        last = self.last_action
+        answer = raw_text.lower().strip().rstrip(".!?")
+        budget_offer = last is not None and last.relaxed_slot == "budget" and not last.places
+        accepted = budget_offer and answer in {
+            "yes", "yes please", "sure", "ok", "okay", "ok can", "can", "show me",
+            "show me options above budget",
+        }
+        declined = budget_offer and answer in {"no", "no thanks", "no need", "nope"}
+        dietary_offer = last is not None and last.relaxed_slot == "dietary" and not last.places
+        asked = last.ask_slot if last is not None else None
 
-        raw_out = track(self.history + [turn], self.state)
+        raw_out = (TrackerOutput(slots=self.state.slots) if accepted or declined
+                   else track(self.history + [turn], self.state))
         tracker_out = translate(raw_out)
+        budget = budget_update(raw_text, answering_budget=asked == "budget")
+        if (budget == BUDGET_UNCLEAR and tracker_out.critique == "too_expensive"
+                and asked != "budget" and "$" not in answer and "budget" not in answer
+                and re.search(r"\b(?:cheaper|too expensive|too ex|too pricey)\b", answer)):
+            budget = None
+        if budget is not None:
+            tracker_out.slots["budget"] = budget
+            if tracker_out.critique == "too_expensive":
+                tracker_out.critique = None
+        elif self.state.slots["budget"] != UNKNOWN:
+            tracker_out.slots["budget"] = self.state.slots["budget"]
+        dietary = dietary_update(raw_text, asked == "dietary", self.state.slots["dietary"])
+        if dietary_offer and answer in {"yes", "yes please", "sure", "ok", "okay", "can"}:
+            dietary = dietary_update("no dietary requirements", False, self.state.slots["dietary"])
+        if dietary is not None:
+            tracker_out.slots["dietary"] = dietary
+            if (asked == "dietary" or dietary_offer) and tracker_out.critique == "not_interested":
+                tracker_out.critique = None
         # "dun want this one": the tracker doesn't name the place, but we know what we showed last.
         if tracker_out.critique == "not_interested" and tracker_out.reject is None \
                 and self.last_action is not None and self.last_action.places:
@@ -106,13 +136,23 @@ class MakanSession:
             prev.landmark, prev.slots["area"], self.state.slots["area"],
             raw_area=raw_out.slots["area"], text=normalized or raw_text)
 
-        action = decide(self.state, self.n_asked, recommender,
-                        query_norm=normalized, user_latlon=self.user_latlon)
+        if accepted:
+            action = above_budget(self.state, recommender, normalized, self.user_latlon)
+        elif declined:
+            action = PolicyAction(kind="recommend")
+        else:
+            action = decide(self.state, self.n_asked, recommender,
+                            query_norm=normalized, user_latlon=self.user_latlon)
         if action.kind == "ask":
             self.n_asked += 1
         self.last_action = action
 
-        generated = generate(action, style, raw_text)
+        if accepted and not action.places:
+            generated = "I couldn't find nearby alternatives with a listed price that match your other preferences."
+        elif action.ask_slot == "budget" or action.relaxed_slot in {"budget", "dietary"} or declined:
+            generated = template_reply(action, style)
+        else:
+            generated = generate(action, style, raw_text)
         reply, guard_triggered = guardrail(generated, action, style)
 
         turn.reply = reply

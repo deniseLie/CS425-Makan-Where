@@ -5,7 +5,8 @@ import pytest
 import src.pipeline as pipeline
 import src.tracker.hf as hf
 from src.pipeline import MakanSession
-from src.schemas import UNKNOWN, DialogueState, PolicyAction, RankedPlace, Turn
+from src.schemas import ANY, UNKNOWN, DialogueState, PolicyAction, RankedPlace, Turn
+from src.tracker.values import BUDGET_UNCLEAR
 from src.style import detect_style
 from src.tracker import track
 
@@ -127,7 +128,7 @@ def test_trained_tracker_answers_change_the_state(session, monkeypatch):
     assert d3["state"]["excluded_place_ids"] == [ids2[0]] and ids3 and ids2[0] not in ids3
 
     _, d4 = session.step("cheap cheap pls")
-    assert d4["state"]["slots"]["budget"] == "<=10" and d4["state"]["budget_max"] == 10.0
+    assert d4["state"]["budget_max"] is None and d4["action"]["ask_slot"] == "budget"
 
     assert prompts[1].startswith("[TRACK]\nUser: korean lah, bugis side\nNormalized: korean lah, bugis side\nSystem: ")
     assert prompts[-1].endswith("\nUser: cheap cheap pls\nNormalized: cheap cheap pls")
@@ -153,7 +154,7 @@ def test_tracker_stub():
     assert out.slots["cuisine"] == "indian"
     assert out.slots["area"] == "jurong east"
     assert out.slots["dietary"] == "halal"
-    assert out.slots["budget"] == "<=8"
+    assert out.slots["budget"] == BUDGET_UNCLEAR
     out = track([Turn(raw="anything also can")], DialogueState(slots={"cuisine": "korean"}))
     assert out.slots["area"] == "ANY"
     assert track([Turn(raw="don't want Hanok BBQ Bugis")], DialogueState()).reject == "P002"
@@ -169,4 +170,37 @@ def test_named_spot_is_kept_across_turns():
     assert d2["state"]["landmark"] == "bugis" and d2["state"]["radius_km"] == 1.0
     _, d3 = s.step("tampines then")
     assert d3["state"]["slots"]["area"] == "tampines" and d3["state"]["landmark"] is None
+
+
+def test_exact_budget_wins_over_tracker_and_is_kept_until_updated(session, monkeypatch):
+    def fake_track(history, prev):
+        budget = "$8-10" if "max" in history[-1].raw else "$10-20"
+        return hf.parse(json.dumps({"cuisine": "Western", "area": "river valley", "budget": budget}), prev)
+
+    monkeypatch.setattr(pipeline, "track", fake_track)
+    for text, expected in [("$15", 15), ("max $8", 8), ("restaurant", 8), ("cheap please", None),
+                           ("8.50", 8.5), ("no budget limit", None)]:
+        _, debug = session.step(text)
+        assert debug["state"]["budget_max"] == expected
+        if text == "cheap please":
+            assert debug["action"]["ask_slot"] == "budget"
+    assert session.state.slots["budget"] == ANY
+
+
+def test_above_budget_suggestions_require_opt_in_and_keep_cap(session):
+    reply, debug = session.step("western food in river valley, max $5")
+    assert not debug["action"]["places"] and "within your budget" in reply
+    reply, debug = session.step("yes")
+    assert debug["action"]["places"] and "over budget" in reply
+    assert session.state.budget_max == 5
+    _, debug = session.step("same area")
+    assert not debug["action"]["places"]
+
+
+@pytest.mark.parametrize("answer", ["no", "no need", "none", "non-halal is fine"])
+def test_dietary_question_accepts_no_requirement(session, answer):
+    session.state = DialogueState(slots={"cuisine": "korean", "area": "downtown core", "dietary": "halal"})
+    session.last_action = PolicyAction(kind="ask", ask_slot="dietary")
+    session.step(answer)
+    assert session.state.slots["dietary"] == ANY
 

@@ -25,7 +25,7 @@ ANY = "ANY"
 SLOTS = ["cuisine", "area", "budget", "dietary", "setting", "time"]
 REQUIRED_SLOTS = ["cuisine", "area"]          # policy asks for these first
 SOFT_SLOTS = ["dietary", "setting", "time"]   # asked only to narrow a big candidate set
-# budget: hard filter if the user states it, never asked
+# budget: hard filter if stated, asked to clarify an unclear amount
 
 STYLES = ("singlish", "english")
 CRITIQUES = ("too_far", "too_expensive", "not_interested")
