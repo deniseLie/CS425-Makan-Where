@@ -1,7 +1,7 @@
 """Train the tracker's LoRA adapter ([TRACK]) on Qwen2.5-1.5B-Instruct, evaluate it, and push it.
 
 The script version of qwen_denise.ipynb with TASK = "track", for a GPU cluster or `!python` in
-Colab. It trains on MultiWOZ and freshly built synthetic [TRACK] rows from data/, through
+Colab. It trains on the MultiWOZ and synthetic [TRACK] files exactly as they are in data/, through
 the chat template the way src/llm.py serves them, with the loss on the answer JSON only.
 
 Run from anywhere in a checkout (needs backend/requirements-ml.txt and bitsandbytes):
@@ -26,15 +26,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
-sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "backend"))
 
 from src.schemas import SLOTS  # noqa: E402
-from data.build_synthetic import build_splits  # noqa: E402
 
 FILES = {
-    "train": ["woz_converted_data/dialogues_train.jsonl"],
-    "dev": ["woz_converted_data/dialogues_dev.jsonl"],
+    "train": ["woz_converted_data/dialogues_train.jsonl", "synthetic_data/dialogues_synth_train.jsonl"],
+    "dev": ["woz_converted_data/dialogues_dev.jsonl", "synthetic_data/dialogues_synth_dev.jsonl"],
     "test": ["woz_converted_data/dialogues_test.jsonl"],  # the synthetic data has no test split
 }
 TARGETS = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
@@ -46,8 +44,6 @@ def read(split: str) -> list[dict]:
     for f in FILES[split]:
         with open(DATA / f, encoding="utf-8") as fh:
             rows += [json.loads(line) for line in fh if line.strip()]
-    if split != "test":
-        rows.extend(build_splits()[split])
     return rows
 
 

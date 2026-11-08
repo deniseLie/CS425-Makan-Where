@@ -7,7 +7,7 @@ import pytest
 from src.config import DATA_DIR
 from src.schemas import ANY, SLOTS, UNKNOWN, TrackerOutput
 from src.tracker.values import (CUISINES, LANDMARKS, PLANNING_AREAS, REGIONS, TABLES, meal_of,
-                                place_value, translate)
+                                parse_budget, place_value, translate)
 
 
 @pytest.mark.parametrize("slot,value,expected", [
@@ -121,9 +121,8 @@ def test_every_synthetic_value_is_known():
     known = {
         "cuisine": set(CUISINES),
         "area": set(PLANNING_AREAS) | set(REGIONS),
-        "budget": {"<=5", "<=10", "<=20"},
-        "dietary": {"halal", "vegetarian", "no beef"},
-        "setting": {"hawker", "aircon", "cafe", "food court"},
+        "dietary": {"halal", "vegetarian", "no beef", "non-halal", "non-vegetarian"},
+        "setting": {"hawker", "aircon", "cafe", "food court", "restaurant", "takeaway"},
     }
     unknown = set()
     for path in paths:
@@ -133,6 +132,9 @@ def test_every_synthetic_value_is_known():
                 v = place_value(slot, gold[slot])
                 if v not in allowed | {UNKNOWN, ANY}:
                     unknown.add((slot, gold[slot]))
+            budget = place_value("budget", gold["budget"])
+            if budget not in {UNKNOWN, ANY} and (not budget.startswith("<=") or parse_budget(budget) is None):
+                unknown.add(("budget", gold["budget"]))
             t = place_value("time", gold["time"])
             if t not in {UNKNOWN, ANY, "breakfast", "lunch", "dinner", "late night", "now"}:
                 meal_of(t)  # must be a clock time
