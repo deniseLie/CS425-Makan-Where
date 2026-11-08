@@ -156,12 +156,18 @@ def test_exact_budget_wins_over_tracker_and_is_kept_until_updated(session, monke
         return hf.parse(json.dumps({"cuisine": "Western", "area": "river valley", "budget": budget}), prev)
 
     monkeypatch.setattr(pipeline, "track", fake_track)
-    for text, expected in [("$15", 15), ("max $8", 8), ("restaurant", 8), ("cheap please", None),
-                           ("8.50", 8.5), ("no budget limit", None)]:
+    for text, expected in [
+        ("$15", 15), ("max $8", 8), ("restaurant", 8), ("actually twelve bucks", 12),
+        ("cheap please", None), ("8.50", 8.5), ("any price is fine", None),
+        ("any price under $8", 8), ("make my budget flexible", None),
+        ("max $8", 8), ("no budget limit", None),
+    ]:
         _, debug = session.step(text)
         assert debug["state"]["budget_max"] == expected
         if text == "cheap please":
             assert debug["action"]["ask_slot"] == "budget"
+        elif expected is None:
+            assert debug["state"]["slots"]["budget"] == ANY
     assert session.state.slots["budget"] == ANY
 
 

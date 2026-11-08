@@ -81,11 +81,24 @@ TABLES: dict[str, dict[str, str]] = {
 _CLOCK_RX = re.compile(r"(\d{1,2})(?:[:.](\d{2}))?\s*([ap])?\.?m?\.?")
 
 BUDGET_UNCLEAR = "budget amount needed"
+_MONEY_UNIT = r"dollars?|bucks?"
+_ONES = (
+    "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+    "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
+    "eighteen", "nineteen",
+)
+_TENS = ("twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety")
+_WORD_AMOUNTS = {word: number for number, word in enumerate(_ONES)}
+_WORD_AMOUNTS.update({word: number * 10 for number, word in enumerate(_TENS, start=2)})
+_SPOKEN_AMOUNT = re.compile(
+    rf"\b(?:(?P<tens>{'|'.join(_TENS)})(?:[ -](?P<ones>{'|'.join(_ONES[1:10])}))?"
+    rf"|(?P<simple>{'|'.join(_ONES)}))(?=\s+(?:{_MONEY_UNIT})\b)"
+)
 _AMOUNT = r"\d+(?:\.\d{1,2})?(?!\w|[.,]\d)"
 _BUDGET_AMOUNT = (
     rf"(?:s?\$\s*)?(?P<first>{_AMOUNT})"
     rf"(?:\s*(?:[-–—]|\bto\b)\s*(?:s?\$\s*)?(?P<last>{_AMOUNT}))?"
-    r"(?:\s*dollars?\b)?"
+    rf"(?:\s*(?:{_MONEY_UNIT})\b)?"
 )
 _BUDGET_PREFIX = (
     r"<=\s*|\b(?:max(?:imum)?(?:\s+of)?|at most|up to|under|below|"
@@ -93,12 +106,13 @@ _BUDGET_PREFIX = (
 )
 _BUDGET_VALUE = re.compile(rf"(?:{_BUDGET_PREFIX})?{_BUDGET_AMOUNT}")
 _BUDGET_MENTION = re.compile(
-    rf"(?:{_BUDGET_PREFIX}|(?=s?\$)|(?=\d+(?:\.\d+)?\s*dollars?\b)){_BUDGET_AMOUNT}"
+    rf"(?:{_BUDGET_PREFIX}|(?=s?\$)|(?=\d+(?:\.\d+)?\s*(?:{_MONEY_UNIT})\b)){_BUDGET_AMOUNT}"
 )
 _NO_CAP = re.compile(
-    r"\b(?:any budget|no (?:budget|price) (?:limit|cap)|no limit on (?:the )?(?:budget|price)|"
+    r"\b(?:any (?:budget|price)|no (?:budget|price) (?:limit|cap)|no limit on (?:the )?(?:budget|price)|"
     r"(?:budget|price) (?:does(?:n't| not) matter|dun matter|is flexible)|"
-    r"(?:ignore|remove|drop) (?:the |my )?budget(?: cap)?)\b"
+    r"(?:ignore|remove|drop) (?:the |my )?budget(?: cap)?|"
+    r"(?:make|keep) (?:(?:my|our|the) )?budget flexible)\b"
 )
 _UNCLEAR_BUDGET = re.compile(r"\b(?:budget|cheap|cheaper|affordable|inexpensive|max(?:imum)? spend)\b")
 
@@ -107,18 +121,20 @@ def _budget_cap(match: re.Match) -> float:
     return float(match["last"] or match["first"])
 
 
+def _spoken_amount(match: re.Match) -> str:
+    if match["simple"]:
+        return str(_WORD_AMOUNTS[match["simple"]])
+    return str(_WORD_AMOUNTS[match["tens"]] + _WORD_AMOUNTS.get(match["ones"], 0))
+
+
 def parse_budget(value: str) -> float | None:
-    match = _BUDGET_VALUE.fullmatch(value.strip().lower())
+    match = _BUDGET_VALUE.fullmatch(_SPOKEN_AMOUNT.sub(_spoken_amount, value.strip().lower()))
     return _budget_cap(match) if match else None
 
 
 def budget_update(text: str, answering_budget: bool = False) -> str | None:
     """Recognize a budget instruction in the latest turn, independent of tracker state."""
-    value = text.lower().strip().rstrip(".!?")
-    if _NO_CAP.search(value) or (
-        answering_budget and value in {"any", "anything", "no limit", "no preference", "no need"}
-    ):
-        return ANY
+    value = _SPOKEN_AMOUNT.sub(_spoken_amount, text.lower().strip().rstrip(".!?"))
     amounts = list(_BUDGET_MENTION.finditer(value))
     amounts = [
         match for match in amounts
@@ -132,6 +148,10 @@ def budget_update(text: str, answering_budget: bool = False) -> str | None:
                 or re.match(r"\s*(?:more|extra|or more)\b", value[match.end():]):
             return BUDGET_UNCLEAR
         return f"<={_budget_cap(match):g}"
+    if not amounts and (_NO_CAP.search(value) or (
+        answering_budget and value in {"any", "anything", "no limit", "no preference", "no need"}
+    )):
+        return ANY
     if answering_budget:
         cap = parse_budget(value)
         if cap is not None:

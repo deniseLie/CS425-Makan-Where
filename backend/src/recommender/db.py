@@ -47,6 +47,8 @@ def use_places_csv(path: Optional[Path]) -> None:
 def _load(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path, dtype={"postal_code": str, "licence_number": str, "nea_type": str,
                                   "building": str, "unit": str}, low_memory=False)
+    # Unnamed rows cannot be displayed or checked against names in a reply.
+    df = df.loc[df["name"].notna() & df["name"].str.strip().ne("")].copy()
     # Planning areas and regions are upper case in NEA ("DOWNTOWN CORE"); slot values are lower.
     for col in ("area", "region"):
         df[col] = df[col].str.lower()

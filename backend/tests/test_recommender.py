@@ -277,6 +277,13 @@ def test_real_places_csv_reads_in_tracker_values(real_places):
     assert real_places["place_id"].is_unique
 
 
+def test_unnamed_places_are_excluded(tmp_places):
+    tmp_places([dict(place_id="MISSING", name=None), dict(place_id="BLANK", name="  "),
+                dict(place_id="NAMED", name="Named Place")])
+    assert recommender.place_names() == ["Named Place"]
+    assert [row["place_id"] for row in recommender.candidates(DialogueState())] == ["NAMED"]
+
+
 def test_real_places_csv_is_cleaned(real_places):
     # the cleaning rules are for NEA licences; OSM / Google places are public eateries already
     nea = real_places[real_places["place_id"].str.startswith("P")]
