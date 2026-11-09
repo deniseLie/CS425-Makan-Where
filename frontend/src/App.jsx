@@ -1,5 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { createSession, health, resetSession, sendMessage } from './api.js'
+import PinnedList from './PinnedList.jsx'
+import PlaceCards from './PlaceCards.jsx'
+import RealMap from './RealMap.jsx'
 
 const SUGGESTIONS = ['I want eat something leh', 'korean lah, bugis side', 'must be halal hor', 'too far leh']
 const SLOTS = ['cuisine', 'area', 'budget', 'dietary', 'setting', 'time']
@@ -40,6 +43,26 @@ export default function App() {
   const [error, setError] = useState('')
   const [debug, setDebug] = useState(null)
   const [components, setComponents] = useState(null)
+  const [hovered, setHovered] = useState(null) // place_id under the mouse, on a card or a pin
+  const [selectedCard, setSelectedCard] = useState(null) // place_id of the clicked card
+  const [focus, setFocus] = useState(null) // [lat, lon] the map should fly to
+  // places the user pinned, kept across reloads; storage can be blocked, so never rely on it
+  const [pinned, setPinned] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('makan.pins')) || {} } catch { return {} }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('makan.pins', JSON.stringify(pinned)) } catch { /* private window */ }
+  }, [pinned])
+  const focusOn = (p) => p.lat != null && setFocus([p.lat, p.lon])
+  function selectCard(p) { setSelectedCard(p.place_id); focusOn(p) }
+  function togglePin(p) {
+    setPinned((cur) => {
+      if (cur[p.place_id]) { const { [p.place_id]: _, ...rest } = cur; return rest }
+      return { ...cur, [p.place_id]: p }
+    })
+    if (!pinned[p.place_id]) focusOn(p)
+  }
+  function unpin(id) { setPinned(({ [id]: _, ...rest }) => rest) }
   const endRef = useRef(null)
 
   useEffect(() => {
@@ -68,7 +91,7 @@ export default function App() {
         res = await sendMessage(id, message)
       }
       setSessionId(id)
-      setMessages((m) => [...m, { role: 'bot', text: res.reply }])
+      setMessages((m) => [...m, { role: 'bot', text: res.reply, places: res.places ?? [], search: res.search ?? null }])
       setDebug(res.debug)
     } catch (e) {
       setError(`Could not get a reply (${e.message}).`)
@@ -83,6 +106,15 @@ export default function App() {
     setDebug(null)
     setError('')
   }
+
+  // In the chat the newest recommendation is live and older ones are superseded. The map shows the
+  // newest picks; the set before those supplies ghost pins (picks that dropped out).
+  const pickTurns = messages.flatMap((m, i) => (m.places?.length ? [i] : []))
+  const latest = pickTurns.at(-1)
+  const livePlaces = latest != null ? messages[latest].places : []
+  const liveIds = new Set(livePlaces.map((p) => p.place_id))
+  const ghosts = pickTurns.length > 1 ? messages[pickTurns.at(-2)].places.filter((p) => !liveIds.has(p.place_id)) : []
+  const search = messages.findLast((m) => m.role === 'bot')?.search ?? null
 
   return (
     <div className="app">
@@ -110,7 +142,15 @@ export default function App() {
                 </div>
               </div>
             )}
-            {messages.map((m, i) => <div key={i} className={`bubble ${m.role}`}>{m.text}</div>)}
+            {messages.map((m, i) => (
+              <Fragment key={i}>
+                <div className={`bubble ${m.role}`}>{m.text}</div>
+                {m.places?.length > 0 && (
+                  <PlaceCards places={m.places} superseded={i !== latest} hovered={hovered} onHover={setHovered}
+                    selectedCard={selectedCard} onSelect={selectCard} pinned={pinned} onTogglePin={togglePin} />
+                )}
+              </Fragment>
+            ))}
             {busy && <div className="bubble bot typing" role="status" aria-label="Working on a reply"><i /><i /><i /></div>}
             <div ref={endRef} />
           </div>
@@ -124,8 +164,16 @@ export default function App() {
         </section>
 
         <aside className="debug" aria-label="Pipeline debug">
-          <h2>Pipeline state</h2>
-          <Debug debug={debug} />
+          <section>
+            <h2>Pipeline state</h2>
+            <Debug debug={debug} />
+          </section>
+          <section>
+            <h2>Search area</h2>
+            <RealMap search={search} places={livePlaces} ghosts={ghosts} hovered={hovered} onHover={setHovered}
+              pinned={pinned} onUnpin={unpin} focus={focus} />
+            <PinnedList pinned={pinned} center={search?.center} onFocus={focusOn} onUnpin={unpin} onClear={() => setPinned({})} />
+          </section>
         </aside>
       </main>
     </div>
