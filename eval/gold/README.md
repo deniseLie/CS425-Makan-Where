@@ -53,7 +53,7 @@ An unknown rating, price estimate or opening hours is neutral, not a reason for 
 
 | file | dialogues | made by |
 |---|---|---|
-| `gold_claude_01.jsonl` | 52 (27 Singlish, 25 English; 1-4 turns) | **Draft by Claude, for the team to review.** Dialogues written by Claude (not real users); `gold_state` built with the backend's own value tables (`aliases.canonical`, `track_landmark`, `parse_budget`); places judged blind by Claude subagents from the `--pool` file with the rubric above (467 places, plus 8 the hybrid ranker put in its top 3 when ranking on the normalizer's output, `--query-from`, and 32 from the tracked states of `eval_tracker.py`). Dialogues were adjusted so every final state has at least 3 candidates. Replace `annotator` when a team member re-checks a dialogue. |
+| `gold_claude_01.jsonl` | 52 (27 Singlish, 25 English; 1-4 turns) | **Draft by Claude, for the team to review.** Dialogues written by Claude (not real users); `gold_state` built with the backend's own value tables (`aliases.canonical`, `track_landmark`, `parse_budget`); places judged blind by Claude subagents from the `--pool` file with the rubric above (467 places, plus 8 the hybrid ranker put in its top 3 when ranking on the normalizer's output, `--query-from`, 32 from the tracked states of `eval_tracker.py`, and 2 from the normalizer with entity protection). Dialogues were adjusted so every final state has at least 3 candidates. Replace `annotator` when a team member re-checks a dialogue. |
 
 ## Example (pretty-printed; in the file it is one line)
 

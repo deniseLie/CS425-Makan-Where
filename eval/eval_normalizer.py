@@ -12,14 +12,17 @@ Test sets:
               requests the normalizer has certainly not seen
 
 Baseline: copying the Singlish input unchanged ("no normalizer"). Scores are sacrebleu's corpus
-BLEU and chrF (cased, default tokenization). The model runs as src.normalizer.hf.normalize does
-(same prefix, beam 4, up to 128 new tokens), one input at a time by default: in a batch, one input
-that loops to 128 tokens ("Wahhh lobang Lai Liao") stalls the whole batch.
+BLEU and chrF (cased, default tokenization). Each input goes through src.normalizer.normalize, as
+the pipeline calls it: entity protection, generation, and the guards that return the input
+unchanged (a protected entity dropped, a repetition loop, an over-long output). `unchanged` is
+the share of inputs returned as they came in. --bare runs the model alone, as normalize() did
+before those guards (b988c17): same prefix, beam 4, up to 128 new tokens.
 
-    python eval/eval_normalizer.py                       # SEAT test + gold (~2 min on CPU)
+    python eval/eval_normalizer.py                       # SEAT test + gold (~3 min on CPU)
+    python eval/eval_normalizer.py --bare                # the model without the guards
     python eval/eval_normalizer.py --sets gold           # just the gold dialogues
 
-Writes every output to outputs/eval/normalizer_<set>.jsonl.
+Writes every output to outputs/eval/normalizer_<set>.jsonl (normalizer_<set>_bare.jsonl).
 """
 
 from __future__ import annotations
@@ -71,23 +74,29 @@ def load_gold_turns(path: Path) -> list[dict]:
     return out
 
 
-def normalize_all(texts: list[str], batch: int) -> list[str]:
+def bare_normalize(text: str) -> str:
+    """The model alone, as normalize() ran before entity protection and the output guards."""
     import torch
 
     from src.normalizer.hf import MAX_NEW_TOKENS, PREFIX, _load
 
     tok, model = _load()
-    order = sorted(range(len(texts)), key=lambda i: len(texts[i]))
-    out = [""] * len(texts)
-    start = time.time()
-    for b in range(0, len(order), batch):
-        idx = order[b:b + batch]
-        enc = tok([PREFIX + texts[i] for i in idx], return_tensors="pt", padding=True, truncation=True, max_length=256)
-        with torch.no_grad():
-            gen = model.generate(**enc, max_new_tokens=MAX_NEW_TOKENS, num_beams=4)
-        for i, text in zip(idx, tok.batch_decode(gen, skip_special_tokens=True)):
-            out[i] = text.strip() or texts[i]  # normalize() falls back to the input on an empty output
-        print(f"  {min(b + batch, len(order))}/{len(order)} ({time.time() - start:.0f} s)", flush=True)
+    enc = tok(PREFIX + text, return_tensors="pt", truncation=True, max_length=256)
+    with torch.no_grad():
+        gen = model.generate(**enc, max_new_tokens=MAX_NEW_TOKENS, num_beams=4)
+    return tok.decode(gen[0], skip_special_tokens=True).strip() or text
+
+
+def normalize_all(texts: list[str], bare: bool) -> list[str]:
+    """One input at a time, as the pipeline calls it (in a batch, one looping input stalls the rest)."""
+    from src.normalizer import normalize
+
+    fn = bare_normalize if bare else normalize
+    out, start = [], time.time()
+    for i, text in enumerate(texts, 1):
+        out.append(fn(text))
+        if i % 25 == 0 or i == len(texts):
+            print(f"  {i}/{len(texts)} ({time.time() - start:.0f} s)", flush=True)
     return out
 
 
@@ -101,9 +110,11 @@ def scores(hyps: list[str], refs: list[str]) -> dict:
 def report(name: str, rows: list[dict]) -> dict:
     refs = [r["ref"] for r in rows]
     model = scores([r["pred"] for r in rows], refs)
+    model["unchanged"] = sum(r["pred"] == r["src"] for r in rows) / len(rows)
     copy = scores([r["src"] for r in rows], refs)
     print(f"{name:10s} n={len(rows):5d}  model BLEU {model['BLEU']:5.1f}  chrF {model['chrF']:5.1f}  "
-          f"exact {model['exact']:5.1%}   |  copy-input BLEU {copy['BLEU']:5.1f}  chrF {copy['chrF']:5.1f}")
+          f"exact {model['exact']:5.1%}  unchanged {model['unchanged']:5.1%}   |  "
+          f"copy-input BLEU {copy['BLEU']:5.1f}  chrF {copy['chrF']:5.1f}")
     return {"n": len(rows), "model": model, "copy_input": copy}
 
 
@@ -112,7 +123,7 @@ def main() -> None:
     ap.add_argument("--sets", nargs="+", default=["seat-test", "gold"],
                     choices=["seat-test", "seat-all", "gold"])
     ap.add_argument("--gold", type=Path, default=ROOT / "eval" / "gold")
-    ap.add_argument("--batch", type=int, default=1)
+    ap.add_argument("--bare", action="store_true", help="the model alone, without entity protection or guards")
     ap.add_argument("--out-dir", type=Path, default=ROOT / "outputs" / "eval")
     args = ap.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
@@ -130,7 +141,8 @@ def main() -> None:
     # each distinct input is normalized once (seat-test is a subset of seat-all)
     texts = sorted({r["src"] for rows in sets.values() for r in rows})
     print(f"normalizing {len(texts)} distinct inputs")
-    pred = dict(zip(texts, normalize_all(texts, args.batch)))
+    pred = dict(zip(texts, normalize_all(texts, args.bare)))
+    tag = "_bare" if args.bare else ""
 
     summary = {}
     print()
@@ -140,9 +152,9 @@ def main() -> None:
             print(f"{name:10s} no rows")
             continue
         summary[name] = report(name, rows)
-        with open(args.out_dir / f"normalizer_{name}.jsonl", "w", encoding="utf-8") as f:
+        with open(args.out_dir / f"normalizer_{name}{tag}.jsonl", "w", encoding="utf-8") as f:
             f.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in rows)
-    (args.out_dir / "normalizer.summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    (args.out_dir / f"normalizer{tag}.summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":
