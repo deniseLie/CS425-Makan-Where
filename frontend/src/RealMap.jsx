@@ -1,7 +1,6 @@
 import L from 'leaflet'
 import { useEffect, useRef, useState } from 'react'
 import { Circle, CircleMarker, MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet'
-import MiniMap from './MiniMap.jsx'
 
 // OpenStreetMap's standard tiles: no key (CARTO's now watermarks keyless use). Dark mode darkens
 // them with a CSS filter on the tile pane instead of a separate dark tile set.
@@ -78,22 +77,6 @@ function Camera({ center, radiusKm, points, focus }) {
   return null
 }
 
-/** Count tile errors; a burst of them means no internet, so fall back to the offline sketch. */
-function TileWatch({ onDead }) {
-  const map = useMap()
-  useEffect(() => {
-    let errors = []
-    const on = () => {
-      const now = Date.now()
-      errors = [...errors.filter((t) => now - t < 5000), now]
-      if (errors.length >= 3) onDead()
-    }
-    map.on('tileerror', on)
-    return () => map.off('tileerror', on)
-  }, [])
-  return null
-}
-
 function money(p) {
   const { price_min: lo, price_max: hi } = p
   if (lo == null && hi == null) return null
@@ -101,11 +84,9 @@ function money(p) {
 }
 
 /** Street map: search centre, radius ring, numbered picks, grey ghosts for dropped picks, and the
- *  places the user pinned (each with a popup to remove it). Falls back to MiniMap when offline. */
+ *  places the user pinned (each with a popup to remove it). */
 export default function RealMap({ search, places, ghosts, hovered, onHover, pinned, onUnpin, focus }) {
   const dark = useDark()
-  const forceSketch = new URLSearchParams(location.search).get('map') === 'sketch'
-  const [dead, setDead] = useState(forceSketch)
   const [big, setBig] = useState(false)
   const radius = useEasedRadius((search?.radius_km ?? 0) * 1000)
 
@@ -115,7 +96,6 @@ export default function RealMap({ search, places, ghosts, hovered, onHover, pinn
   const pickIds = new Set(located.map((p) => p.place_id))
   const center = search?.center ?? null
 
-  if (dead) return <MiniMap search={search} places={places} ghosts={ghosts} hovered={hovered} onHover={onHover} />
   if (!center && located.length + saved.length === 0) return <p className="muted">Name an area to see where I'm searching.</p>
 
   const points = [...located, ...ghostPins, ...saved].map((p) => [p.lat, p.lon])
@@ -124,7 +104,6 @@ export default function RealMap({ search, places, ghosts, hovered, onHover, pinn
       <MapContainer center={center ?? points[0] ?? SINGAPORE} zoom={15} scrollWheelZoom={false} className="realmap-canvas"
         whenReady={(e) => { const m = e.target; m.on('click', () => m.scrollWheelZoom.enable()); m.on('mouseout', () => m.scrollWheelZoom.disable()) }}>
         <TileLayer url={TILES} attribution={ATTRIBUTION} maxZoom={19} />
-        <TileWatch onDead={() => setDead(true)} />
         <Camera center={center} radiusKm={search?.radius_km ?? 0} points={points} focus={focus} />
         {center && radius > 0 && (
           <Circle center={center} radius={radius} pathOptions={{ color: '#d9480f', weight: 2, dashArray: '6 4', fillOpacity: 0.12 }} />

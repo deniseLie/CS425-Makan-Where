@@ -185,26 +185,7 @@ pre { font-size: 0.75rem; overflow: auto; max-height: 320px; background: var(--b
 .score { height: 3px; margin-top: 8px; border-radius: 3px; background: var(--line); overflow: hidden; }
 .score span { display: block; height: 100%; background: linear-gradient(90deg, var(--chilli), var(--broth)); }
 
-/* Mini-map */
-.minimap { display: block; width: 100%; height: auto; }
-.map-bg { fill: var(--bg); stroke: var(--line); }
-.map-grid { fill: none; stroke: var(--line); stroke-dasharray: 2 4; }
-.map-ring { fill: color-mix(in srgb, var(--chilli) 12%, transparent); stroke: var(--chilli); stroke-width: 1.5; stroke-dasharray: 6 4; transition: r 0.9s cubic-bezier(0.3, 0, 0.2, 1); }
-.map-centre circle { fill: var(--text); }
-.map-centre text, .map-scale text, .map-radius { fill: var(--muted); font-size: 10px; }
-.map-radius { font-weight: 700; fill: var(--chilli); }
-.map-label { fill: var(--text); font-size: 10px; text-transform: capitalize; }
-.map-scale line { stroke: var(--muted); stroke-width: 2; }
-.pin { transform-box: fill-box; transform-origin: center; animation: pin-drop 0.45s ease-out backwards; animation-delay: calc(var(--i, 0) * 110ms + 0.3s); transition: transform 0.2s; cursor: default; }
-.pin circle { fill: var(--chilli); stroke: var(--panel); stroke-width: 2; transition: fill 0.2s; }
-.pin text { fill: #fff; font-size: 11px; font-weight: 800; pointer-events: none; }
-.pin.hot { transform: scale(1.3); }
-.pin.hot circle { fill: var(--noodle); }
-.pin.hot text { fill: var(--chopstick); }
-.pin.ghost { animation: ghost-out 1.2s ease-out both; }
-.pin.ghost circle { fill: none; stroke: var(--muted); stroke-dasharray: 3 2; stroke-width: 1.5; }
 @keyframes pin-drop { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
-@keyframes ghost-out { from { opacity: 1; } to { opacity: 0.55; } }
 
 /* Street map (Leaflet) */
 .realmap { position: relative; }
