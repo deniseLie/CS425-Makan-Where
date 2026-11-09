@@ -188,3 +188,26 @@ def test_dietary_question_accepts_no_requirement(session, answer):
     session.step(answer)
     assert session.state.slots["dietary"] == ANY
 
+
+
+def test_debug_reports_stage_timings(session):
+    _, debug = session.step("korean lah, bugis side")
+    timings = debug["timings_ms"]
+    assert list(timings) == ["normalize", "style", "track", "policy", "generate"]
+    assert all(isinstance(ms, int) and ms >= 0 for ms in timings.values())
+
+
+def test_debug_says_who_wrote_the_reply(session, monkeypatch):
+    monkeypatch.setattr(pipeline, "generate", lambda action, style, text: "Go Orchard Sky Grill lah!")
+    _, debug = session.step("korean food in bugis please")
+    assert debug["reply_source"] == "guardrail"
+    monkeypatch.setattr(pipeline, "generate", lambda action, style, text: "Can, here got some.")
+    _, debug = session.step("ok")
+    assert debug["reply_source"] == "llm"
+
+
+def test_debug_keeps_the_raw_tracker_values(session):
+    _, debug = session.step("korean lah, bugis side")
+    # the state holds the planning area; the raw tracker output keeps what was said
+    assert debug["state"]["slots"]["area"] == "downtown core"
+    assert set(debug["tracker_raw"]["slots"]) == set(debug["state"]["slots"])

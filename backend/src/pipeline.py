@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import json
 import re
+import time
 import uuid
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from src import recommender
 from src.generator import generate, template_reply
@@ -89,9 +90,29 @@ class MakanSession:
     def log_path(self) -> Optional[Path]:
         return self.log_dir / f"{self.session_id}.jsonl" if self.log_dir else None
 
-    def step(self, raw_text: str) -> tuple[str, dict]:
+    def step(self, raw_text: str,
+             on_stage: Optional[Callable[[str, int, dict], None]] = None) -> tuple[str, dict]:
+        """One user turn -> (reply, debug). `on_stage(stage, ms, output)` is called as each stage
+        finishes, so the API can stream the pipeline live; it never stops the turn."""
+        # wall time per stage, so the frontend can show how long each one took
+        timings: dict[str, int] = {}
+        mark = time.perf_counter()
+
+        def lap(stage: str, **output) -> None:
+            nonlocal mark
+            now = time.perf_counter()
+            timings[stage] = round((now - mark) * 1000)
+            mark = now
+            if on_stage is not None:
+                try:
+                    on_stage(stage, timings[stage], output)
+                except Exception:  # a dropped listener must not break the turn
+                    pass
+
         normalized = normalize(raw_text)
+        lap("normalize", normalized=normalized)
         style = detect_style(raw_text)
+        lap("style", style=style)
         turn = Turn(raw=raw_text, normalized=normalized, style=style)
         last = self.last_action
         answer = raw_text.lower().strip().rstrip(".!?")
@@ -135,6 +156,8 @@ class MakanSession:
         self.state.landmark = recommender.track_landmark(
             prev.landmark, prev.slots["area"], self.state.slots["area"],
             raw_area=raw_out.slots["area"], text=normalized or raw_text)
+        lap("track", tracker_raw=raw_out.to_dict(), tracker_output=tracker_out.to_dict(),
+            state=self.state.to_dict())
 
         if accepted:
             action = above_budget(self.state, recommender, normalized, self.user_latlon)
@@ -146,14 +169,22 @@ class MakanSession:
         if action.kind == "ask":
             self.n_asked += 1
         self.last_action = action
+        lap("policy", action=action.to_dict(), n_asked=self.n_asked)
 
+        # reply_source says who wrote the reply: the fine-tuned "llm", a fixed "template", or the
+        # "guardrail" (template swapped in because the LLM named a place the policy didn't pick)
         if accepted and not action.places:
-            generated = "I couldn't find nearby alternatives with a listed price that match your other preferences."
+            generated, source = "I couldn't find nearby alternatives with a listed price that match your other preferences.", "template"
         elif action.ask_slot == "budget" or action.relaxed_slot in {"budget", "dietary"} or declined:
-            generated = template_reply(action, style)
+            generated, source = template_reply(action, style), "template"
         else:
             generated = generate(action, style, raw_text)
+            # generate() falls back to the template when the model returns nothing
+            source = "template" if generated == template_reply(action, style) else "llm"
         reply, guard_triggered = guardrail(generated, action, style)
+        if guard_triggered:
+            source = "guardrail"
+        lap("generate", reply_source=source, guardrail_triggered=guard_triggered)
 
         turn.reply = reply
         self.history.append(turn)
@@ -165,13 +196,16 @@ class MakanSession:
             "raw": raw_text,
             "normalized": normalized,
             "style": style,
+            "tracker_raw": raw_out.to_dict(),     # what the tracker said, before translate()
             "tracker_output": tracker_out.to_dict(),
             "state": self.state.to_dict(),
             "n_asked": self.n_asked,
             "action": action.to_dict(),
             "guardrail_triggered": guard_triggered,
+            "reply_source": source,
             "replaced_reply": generated if guard_triggered else None,  # what the generator wrote
             "reply": reply,
+            "timings_ms": timings,
         }
         self._log(debug)
         return reply, debug
