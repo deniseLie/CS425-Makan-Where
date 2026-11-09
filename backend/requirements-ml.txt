@@ -7,3 +7,4 @@ accelerate
 sentencepiece   # Flan-T5 tokenizer
 huggingface_hub
 sentence-transformers   # optional: MAKAN_RECOMMENDER_CONTENT=embed
+sacrebleu   # eval/eval_normalizer.py: BLEU / chrF
