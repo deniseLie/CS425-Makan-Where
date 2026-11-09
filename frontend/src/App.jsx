@@ -44,7 +44,8 @@ export default function App() {
 
   useEffect(() => {
     health().then((h) => setComponents(h.components)).catch(() => setError('Backend not reachable. Is uvicorn running on port 8000?'))
-    createSession().then(setSessionId).catch(() => {})
+    // keep an existing session: a hot reload re-runs this effect mid-conversation
+    createSession().then((id) => setSessionId((cur) => cur ?? id)).catch(() => {})
   }, [])
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
@@ -90,12 +91,11 @@ export default function App() {
           <img src="/logo.svg" alt="" width="40" height="40" />
           Makan <span className="accent">Where?</span>
         </h1>
-        <div className="badges">
-          {components && ['normalizer', 'style', 'tracker', 'generator'].map((c) => (
-            <span key={c} className="badge" title={components[c].model}>
-              {c}
-            </span>
-          ))}
+        {/* one quiet status dot instead of a badge per model; the model names are in the tooltip */}
+        <div className={`status ${components ? 'ready' : error.startsWith('Backend') ? 'offline' : 'connecting'}`}
+          title={components ? ['normalizer', 'style', 'tracker', 'generator']
+            .map((c) => `${c}: ${components[c]?.model ?? '?'}`).join('\n') : undefined}>
+          <i aria-hidden="true" />{components ? 'Ready' : error.startsWith('Backend') ? 'Offline' : 'Connecting…'}
         </div>
       </header>
 
@@ -111,7 +111,7 @@ export default function App() {
               </div>
             )}
             {messages.map((m, i) => <div key={i} className={`bubble ${m.role}`}>{m.text}</div>)}
-            {busy && <div className="bubble bot typing">…</div>}
+            {busy && <div className="bubble bot typing" role="status" aria-label="Working on a reply"><i /><i /><i /></div>}
             <div ref={endRef} />
           </div>
           {error && <p className="error" role="alert">{error}</p>}
