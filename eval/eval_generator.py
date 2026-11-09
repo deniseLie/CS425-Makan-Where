@@ -45,6 +45,21 @@ def read(path: Path) -> list[dict]:
         return [json.loads(line) for line in f if line.strip()]
 
 
+_BUFFERS: dict = {}
+
+
+def fp32_buffer(w):
+    """w converted to float32 in a buffer reused for every weight of that shape. A fresh float32
+    copy of each weight on every token means GBs of allocations per token, and with little free
+    RAM that pages heavily. The values are the same as w.float()."""
+    import torch
+
+    buf = _BUFFERS.get(tuple(w.shape))
+    if buf is None:
+        buf = _BUFFERS[tuple(w.shape)] = torch.empty(w.shape, dtype=torch.float32)
+    return buf.copy_(w)
+
+
 def _fp32_maths(model):
     """CPU: keep Linear / Embedding weights in bfloat16, run everything else in float32."""
     import torch
@@ -57,7 +72,11 @@ def _fp32_maths(model):
             self.bias = None if lin.bias is None else torch.nn.Parameter(lin.bias.detach().float())
 
         def forward(self, x):
-            return F.linear(x, self.weight.float(), self.bias)
+            # the output layer (152k x 1536) would need a ~1 GB float32 copy: upcast it in slices
+            if self.weight.shape[0] <= 16384:
+                return F.linear(x, fp32_buffer(self.weight), self.bias)
+            out = torch.cat([F.linear(x, fp32_buffer(w)) for w in self.weight.split(16384)], dim=-1)
+            return out if self.bias is None else out + self.bias
 
     for mod in list(model.modules()):
         for name, child in list(mod.named_children()):

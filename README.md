@@ -220,7 +220,7 @@ makan-where/
 ├── frontend/                  React + Vite chat UI with a pipeline-state panel
 ├── training/                  notebooks / scripts that train and push models to the HF Hub
 ├── data/                      [TRACK] datasets, master/places.csv + aliases.csv (format in data/README.md)
-├── eval/                      eval_{recommender,normalizer,style,generator}.py, latest numbers in RESULTS.md;
+├── eval/                      eval_{recommender,normalizer,style,generator,tracker}.py, latest numbers in RESULTS.md;
 │                              gold/ = test dialogues with judged places (format in eval/gold/README.md)
 └── docs/plan.md               project plan
 ```

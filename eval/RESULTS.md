@@ -2,15 +2,19 @@
 
 The proposal's metrics for the recommender, normalizer, style detector and reply generator, run on
 the models the backend serves today (`makan-flan-normalizer`, `makan-singbert-style-classifier`,
-`makan-qwen-reply` on Qwen2.5-1.5B-Instruct) and the current `data/master/places.csv`. Tracker
-numbers are in `docs/presentation_draft.md` (from `training/qwen_track.py`).
+`makan-qwen-reply` on Qwen2.5-1.5B-Instruct) and the current `data/master/places.csv`. The
+tracker's MultiWOZ and synthetic numbers are in `docs/presentation_draft.md` (from
+`training/qwen_track.py`); the tracker on the gold dialogues, with and without the normalizer, is
+under Normalizer below.
 
 | Component | Test set | Metric | Ours | Baseline |
 |---|---|---|---|---|
-| Recommender | 52 gold dialogues | P@3 / nDCG@3 | **0.910 / 0.841** | rating only: 0.833 / 0.716 |
+| Recommender | 52 gold dialogues | P@3 / nDCG@3 | **0.910 / 0.836** | rating only: 0.833 / 0.710 |
 | Recommender | 52 gold dialogues | hit@3 / hard-constraint violations | 1.000 / 0% | 0.923 / 0% |
 | Normalizer | SEAT test (held out in training, 161 pairs) | BLEU / chrF | **55.3 / 69.6** | copy input: 30.4 / 55.2 |
 | Normalizer | gold Singlish turns (35) | BLEU / chrF | 13.2 / 41.3 | copy input: 10.7 / 43.6 |
+| Tracker | gold Singlish turns (35) | joint goal accuracy | with the normalizer: 0.400 | **without it: 0.571** |
+| Whole pipeline | 27 gold Singlish dialogues | P@3 / nDCG@3 of the final picks | with the normalizer: 0.642 / 0.583 | **without it: 0.827 / 0.761** |
 | Style detector | dev (1,189 turns, 185 Singlish) | macro F1 | 0.904 | keywords: **0.930** |
 | Style detector | gold turns (67, 35 Singlish) | macro F1 | **0.895** | keywords: 0.717 |
 | Generator | dev (276 replies) | replies passing every check | **96.4%** (266/276) | teacher replies: 100% |
@@ -21,20 +25,20 @@ numbers are in `docs/presentation_draft.md` (from `training/qwen_track.py`).
 
 | ranking | P@3 | strict P@3 | nDCG@3 | hit@3 | violations |
 |---|---|---|---|---|---|
-| **hybrid** | **0.910** | **0.641** | **0.841** | 1.000 | 0% |
-| rating only | 0.833 | 0.506 | 0.716 | 0.923 | 0% |
-| without content | 0.821 | 0.532 | 0.721 | 0.942 | 0% |
-| without soft | 0.910 | 0.603 | 0.823 | 1.000 | 0% |
-| without quality | 0.897 | 0.571 | 0.799 | 1.000 | 0% |
-| without distance | 0.917 | 0.615 | 0.824 | 1.000 | 0% |
+| **hybrid** | **0.910** | **0.641** | **0.836** | 1.000 | 0% |
+| rating only | 0.833 | 0.506 | 0.710 | 0.923 | 0% |
+| without content | 0.821 | 0.532 | 0.715 | 0.942 | 0% |
+| without soft | 0.910 | 0.603 | 0.818 | 1.000 | 0% |
+| without quality | 0.897 | 0.571 | 0.795 | 1.000 | 0% |
+| without distance | 0.917 | 0.615 | 0.820 | 1.000 | 0% |
 
 - P@3 and hit@3 count places judged relevant (grade ≥ 1), strict P@3 only "great" ones (grade 2);
   nDCG@3 uses the grades 0 / 1 / 2 as gains.
-- Hybrid beats rating-only by +0.077 P@3 (95% bootstrap CI +0.006 to +0.154) and +0.125 nDCG@3
-  (CI +0.036 to +0.221), paired over the 52 dialogues; better nDCG@3 on 22 dialogues, worse on 17, tied on 13.
-- Content similarity matters most: without it nDCG@3 falls to 0.721, close to rating-only. Every
+- Hybrid beats rating-only by +0.077 P@3 (95% bootstrap CI +0.006 to +0.154) and +0.126 nDCG@3
+  (CI +0.037 to +0.221), paired over the 52 dialogues; better nDCG@3 on 22 dialogues, worse on 17, tied on 13.
+- Content similarity matters most: without it nDCG@3 falls to 0.715, close to rating-only. Every
   other part helps nDCG@3 a little; without distance P@3 is slightly higher (0.917) but nDCG@3 lower.
-- Singlish dialogues 0.864 / 0.823 (rating only 0.765 / 0.637), English 0.960 / 0.860
+- Singlish dialogues 0.864 / 0.814 (rating only 0.765 / 0.626), English 0.960 / 0.860
   (0.907 / 0.801). The recommender reads the gold English rewrite, so this gap is about the
   requests, not the language: 15 of 27 Singlish dialogues ask for a specific dish, 4 of 25 English.
 - Misses are mostly dish-level: "chicken rice near Tampines" also returns PUTIEN and a grilled-fish
@@ -50,14 +54,41 @@ numbers are in `docs/presentation_draft.md` (from `training/qwen_track.py`).
 **Gold set.** None existed, so `eval/gold/gold_claude_01.jsonl` is a draft written by Claude for the
 team to review: 52 dialogues (27 Singlish, 25 English; 41 with one turn, 11 with 2-4 turns,
 including revisions, "too far" and "too expensive"), states built with the backend's value tables.
-Relevance was judged by pooling (union of every ranking's top places: 475 places) and blind
-grading by four Claude subagents that saw only the request and place details, never which system
-ranked a place (rubric in `eval/gold/README.md`). The proposal asks for team-judged places, so a
+Relevance was judged by pooling (union of every ranking's top places, 507 places in all with the
+ones added for the normalizer and tracker runs below) and blind grading by Claude subagents that saw
+only the request and place details, never which system ranked a place (rubric in
+`eval/gold/README.md`). Judging more places can only lower nDCG@3, since its best possible score
+counts every good place known; it moved by at most 0.01. The proposal asks for team-judged places, so a
 teammate should spot-check the grades before the numbers are final.
 
 ## Normalizer
 
-`python eval/eval_normalizer.py`
+`python eval/eval_normalizer.py` (translation quality), `python eval/eval_tracker.py` (its effect on
+the pipeline)
+
+**In short: the normalizer makes the bot worse for Singlish users, and the pipeline does better
+without it.**
+
+- The normalizer is meant to turn Singlish into proper English before the rest of the bot reads it.
+  It handles the chatty parts fine ("lah", "leh", "got anot"), but it often mistranslates the words
+  that matter most, the dish and the place: "want prata sia" becomes "want pizza", "biryani near
+  tekka" becomes "Are you near the train?", "nasi lemak" becomes "cheap food".
+- The rest of the bot believes the mistranslation. With the normalizer, the tracker gets a Singlish
+  request fully right about 4 times in 10. Reading what the user typed, about 6 times in 10.
+  Whenever the two disagree, the version without the normalizer is the one that's right.
+- What the user sees: with the normalizer, about 1 in 3 places recommended to a Singlish user is a
+  bad pick. Without it, about 1 in 6. English users get a bad pick about 1 in 25 times.
+- The bot copes without it because Singlish already contains the words the search needs ("laksa",
+  "katong", "tekka"), and "lah", "can" and "got" don't throw it off.
+- A perfect normalizer (our hand-written English rewrites) does only slightly better than none at
+  all. Improving this one would take new in-domain training data for very little gain.
+- English users aren't affected either way: the normalizer mostly leaves English alone.
+- **Recommendation: take the normalizer out** and give the tracker, the ranker and landmark
+  detection the user's own text.
+- Caveat: the 52 test dialogues (27 Singlish) are a Claude-written draft. That's enough to show the
+  direction, but a teammate should spot-check them before exact numbers are quoted.
+
+### Translation quality
 
 | set | n | BLEU | chrF | exact match | copy input: BLEU | chrF |
 |---|---|---|---|---|---|---|
@@ -80,23 +111,83 @@ teammate should spot-check the grades before the numbers are final.
   tekka?" → "Are you near the train?", "nasi padang near geylang serai got?" → "Do you have any
   pets near the beach?", "prata" → "pizza", "tampines" → "tomatoes", "bugis side got?" →
   "What's the bug's side?". It was trained on SMS-style chat, not food requests.
-- This reaches the recommendations: the ranker's content score reads the normalized text.
-  Ranking the Singlish dialogues on the normalizer's output instead of the gold rewrite
-  (`eval_recommender.py --query-from outputs/eval/normalizer_gold.jsonl`):
-
-  | Singlish dialogues (27) | P@3 | strict P@3 | nDCG@3 |
-  |---|---|---|---|
-  | hybrid, gold English rewrite | 0.864 | 0.630 | 0.823 |
-  | hybrid, normalizer output | 0.852 | **0.481** | **0.740** |
-  | rating only | 0.765 | 0.432 | 0.637 |
-
-  The hard filters still keep the picks acceptable (P@3 barely moves), but the dish match is lost:
-  "great" picks fall from 63% to 48%. All 8 new top-3 places this produced were judged too.
 - One input loops: "Wahhh lobang Lai Liao" → "wow woooo…" for all 128 tokens (10 s on CPU). A
   `repetition_penalty` or `no_repeat_ngram_size` in `normalizer/hf.py` would stop it.
-- Possible fixes: keep alias-table words (dishes, places) unchanged in the output, rank on the raw
-  and normalized text together, and fine-tune on in-domain pairs (the synthetic `[TRACK]` data has
-  Singlish lines with their normalized English).
+
+### Effect on the pipeline
+
+The normalizer's text goes to three places: the tracker's `Normalized:` line, the ranker's content
+score (`query_norm`) and landmark detection. Each was run three ways: with the normalizer's output (as
+the backend runs today), with the user's raw text (no normalizer), and with the gold English rewrite
+(a perfect normalizer).
+
+**Ranker alone** (gold state, only the query text changes; `eval_recommender.py --query-from`):
+
+| Singlish dialogues (27) | P@3 | strict P@3 | nDCG@3 |
+|---|---|---|---|
+| raw Singlish (no normalizer) | **0.877** | 0.617 | **0.823** |
+| gold English rewrite | 0.864 | **0.630** | 0.814 |
+| normalizer output | 0.852 | 0.481 | 0.731 |
+| rating only | 0.765 | 0.432 | 0.626 |
+
+The hard filters keep the normalizer's picks acceptable (P@3 barely moves), but the dish match is
+lost: "great" picks fall from 62-63% to 48%. The raw text does as well as a perfect rewrite, because
+the content score matches the dish and place words, which the raw text already has.
+
+**Tracker** (`eval_tracker.py`: each dialogue replayed through `MakanSession.step`, state after every
+turn compared with `gold_state`):
+
+| Singlish turns (35) | joint goal acc. | slot acc. | slot F1 | landmark |
+|---|---|---|---|---|
+| normalizer output (as served) | 0.400 | 0.890 | 0.795 | 0.829 |
+| raw text (no normalizer) | 0.571 | 0.924 | 0.854 | **0.943** |
+| gold English rewrite | **0.657** | **0.943** | **0.890** | 0.886 |
+
+English turns (32) give the same result all three ways (joint 0.781, slot accuracy 0.953).
+
+- 6 Singlish turns (from 4 dialogues) have every slot right only without the normalizer, and none
+  the other way:
+  - "prata" → "pizza" sets cuisine to pizza, wrong for all 3 turns of that dialogue.
+  - "nasi lemak" → "cheap food" invents a ≤$10 budget.
+  - "bak kut teh" → "bak already" makes the cuisine "bak".
+  - "korean fried chicken jurong point got?" → "Do you like Korean fried chicken?".
+- The normalizer also loses the spot the user named: "near tekka", "near geylang serai",
+  "holland v".
+- Why: in training the `Normalized:` line was always right (the synthetic data's clean rewrite, a
+  copy of the text for MultiWOZ). So when it disagrees with the `User:` line, the tracker trusts it.
+- The perfect rewrite gets 3 more turns right than the raw text:
+  - "Holland V" read as the Queenstown area (2 turns; an alias entry would also fix this).
+  - A "hawker" setting the tracker invented from "i dun eat beef leh".
+  - Its landmark score is lower only because it writes "Holland Village" where the gold label says
+    "holland v".
+- Errors shared by all three come from value translation, not the normalizer:
+  - "korean bbq", "dim sum", "pho" and "tom yum" aren't mapped to a cuisine.
+  - "NEX", "Old Airport Road", "Tekka" and "Geylang Serai" aren't mapped to an area.
+
+**Whole pipeline** (each dialogue's final tracked state ranked on the same text):
+
+| | P@3 | strict P@3 | nDCG@3 |
+|---|---|---|---|
+| Singlish (27), with the normalizer (as served) | 0.642 | 0.432 | 0.583 |
+| Singlish (27), raw text (no normalizer) | **0.827** | 0.593 | 0.761 |
+| Singlish (27), gold English rewrite | 0.815 | **0.617** | **0.777** |
+| English (25), any of the three | 0.960-0.973 | 0.653-0.667 | 0.860-0.869 |
+
+- Without the normalizer: P@3 +0.185 (95% bootstrap CI +0.037 to +0.346), nDCG@3 +0.178 (CI +0.027
+  to +0.342). That's better on 9 dialogues, worse on 4, tied on 14.
+- A perfect rewrite over the raw text: nDCG@3 +0.016 (CI −0.025 to +0.065), no measurable gain.
+- How it was run:
+  - Replies between turns are the policy's template replies, not the Qwen generator's, and the style
+    is the gold label. So only the normalized text differs between the three runs.
+  - The tracked states put 32 new places in the top 3. These were graded blind with the same rubric
+    (6 great, 4 acceptable, 22 not), so every score is fully judged.
+  - On the laptop CPU, 86 of the 150 tracker prompts ran with int8 weights (`--int8`, for lack of
+    RAM). On 32 prompts this gave exactly the same output as the bfloat16 weights the backend serves.
+- If the team keeps a normalizer, these would address the errors above:
+  - keep alias-table words (dishes, places) unchanged in its output;
+  - fine-tune it on in-domain pairs (the synthetic `[TRACK]` data has Singlish lines with their
+    English);
+  - stop the loop with a repetition penalty.
 
 ## Style detector
 
@@ -152,6 +243,7 @@ python eval/eval_recommender.py --k 3 --ablations --by-style
 python eval/eval_normalizer.py
 python eval/eval_style.py
 python eval/eval_generator.py
+python eval/eval_tracker.py            # add --int8 on a CPU with little free RAM; ~30 min on a laptop
 ```
 
 Per-item outputs go to `outputs/eval/` (gitignored).
