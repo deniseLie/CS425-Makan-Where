@@ -1,0 +1,21 @@
+original,predicted_style,rules_only,hybrid_guarded,rules_preserves_meaning,hybrid_preserves_meaning,notes
+Any nice chicken rice stall around Bugis?,Singlish,Any nice chicken rice stall around Bugis?,Do you have a nice chicken rice stall around Bugis?,yes,yes,Chicken rice and Bugis preserved.
+Got vegetarian makan near the school?,Singlish,Got vegetarian makan near the school?,Have you got vegetarian food near the school?,yes,yes,Vegetarian food and location preserved.
+Can help me find food below ten dollars?,English,Can help me find food below ten dollars?,Can help me find food below ten dollars?,yes,yes,Budget intent preserved.
+Don't recommend anything with prawns please.,English,Don't recommend anything with prawns please.,Don't recommend anything with prawns please.,yes,yes,Prawn exclusion preserved.
+Is there somewhere to eat after midnight?,English,Is there somewhere to eat after midnight?,Is there somewhere to eat after midnight?,yes,yes,Late-night dining intent preserved.
+This cafe very crowded sia.,Singlish,This cafe very crowded sia.,This cafe is very crowded.,yes,yes,Crowdedness preserved; filler omitted.
+"I want fish soup but no milk, can?",Singlish,"I want fish soup but no milk, can?","I want fish soup but no milk, can I?",yes,no,"Awkward, incomplete question ending."
+Got halal nasi padang near the MRT?,Singlish,Got halal nasi padang near the MRT?,Got halal nasi padang near the MRT?,yes,yes,"Halal, nasi padang and MRT preserved."
+Can find somewhere not so noisy for my parents?,Singlish,Can find somewhere not so noisy for my parents?,Can I find somewhere not so noisy for my parents?,yes,yes,Quietness and parents' needs preserved.
+The food there quite pricey leh.,Singlish,The food there quite pricey leh.,The food there is quite expensive.,yes,yes,Price meaning preserved.
+Any place selling wanton mee nearby?,Singlish,Any place selling wanton mee nearby?,Any place selling wanton mee nearby?,yes,yes,Wanton mee and nearby location preserved.
+Can pack the leftovers for me?,Singlish,Can pack the leftovers for me?,Can you pack the leftovers for me?,yes,yes,Packing leftovers preserved.
+Need a quiet cafe where I can study.,English,Need a quiet cafe where I can study.,Need a quiet cafe where I can study.,yes,yes,Unchanged; meaning preserved.
+"No eggs please, I have an allergy.",English,"No eggs please, I have an allergy.","No eggs please, I have an allergy.",yes,yes,Egg allergy preserved.
+Where to get good kaya toast?,English,Where to get good kaya toast?,Where to get good kaya toast?,yes,yes,Kaya toast preserved.
+I prefer somewhere not too far from campus.,English,I prefer somewhere not too far from campus.,I prefer somewhere not too far from campus.,yes,yes,Distance preference preserved.
+Can recommend a place with vegetarian laksa?,Singlish,Can recommend a place with vegetarian laksa?,Can recommend a place with vegetarian laksa?,yes,yes,Vegetarian laksa preserved.
+Got affordable food open on Sunday?,English,Got affordable food open on Sunday?,Got affordable food open on Sunday?,yes,yes,Affordability and Sunday availability preserved.
+Please find a restaurant that serves chicken and rice.,English,Please find a restaurant that serves chicken and rice.,Please find a restaurant that serves chicken and rice.,yes,yes,Chicken and rice preserved.
+"Want to eat something warm, maybe porridge.",English,"Want to eat something warm, maybe porridge.","Want to eat something warm, maybe porridge.",yes,yes,Warm food and porridge preference preserved.

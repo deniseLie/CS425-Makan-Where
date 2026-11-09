@@ -1,0 +1,32 @@
+category,input,expected_meaning,baseline_output,hybrid_output,baseline_preserves_meaning,hybrid_preserves_meaning,notes
+budget,Got any cheap makan places near SMU?,cheap; near SMU,Do you have any cheap restaurants near SMU?,Do you have any cheap restaurants near SMU?,True,True,
+budget,This place damn ex lah.,expensive,This place is disgusting.,This place is very expensive.,False,True,Baseline mistranslates 'damn ex' as disgusting.
+budget,Any place not too ex for dinner?,not expensive,Any place not too expensive for dinner?,Any place not too expensive for dinner?,True,True,
+budget,Can find somewhere affordable anot?,affordable,Can you find somewhere affordable?,Can you find somewhere affordable?,True,True,
+budget,"I want cheap food, not atas restaurants.",cheap; not fancy,"I want cheap food, not expensive restaurants.","I want cheap food, not fancy restaurants.",False,True,Baseline changes 'not fancy' to 'not expensive'.
+location,Any good food near SMU?,near SMU,Do you have good food near SMU?,Do you have good food near SMU?,True,True,
+location,That place too ulu for me.,location too remote,That place is too expensive for me.,That place is too far away for me.,False,True,Baseline misinterprets 'ulu' as expensive.
+location,Can recommend somewhere near the MRT?,near MRT,Can you recommend somewhere near the MRT?,Can you recommend somewhere near the MRT?,True,True,
+location,I don't want to travel so far.,short travel distance,I don't want to travel so far.,I don't want to travel so far.,True,True,
+dietary,"I don't eat seafood, can recommend somewhere with chicken?",no seafood; chicken,"I don't eat seafood, can you recommend a place with chicken?","I don't eat seafood, can you recommend a place with chicken?",True,True,
+dietary,Got vegetarian options or not?,vegetarian options,Have you got vegetarian options?,Have you got vegetarian options?,True,True,
+dietary,"No beef please, chicken is fine.",no beef; chicken allowed,"No beef please, chicken is fine.","No beef please, chicken is fine.",True,True,
+dietary,I cannot eat peanuts.,avoid peanuts,I cannot eat peanuts.,I cannot eat peanuts.,True,True,
+food,Feel like eating something spicy leh.,spicy food,Feel like eating something spicy.,Feel like eating something spicy.,True,True,
+food,I want makan with lots of vegetables.,vegetable-rich food,I want a meal with lots of vegetables.,I want a meal with lots of vegetables.,True,True,
+food,Got nice chicken rice around here?,chicken rice,Have you got nice chicken rice around here?,Have you got nice chicken rice around here?,True,True,
+food,I'm craving something sweet.,sweet food,I'm craving something sweet.,I'm craving something sweet.,True,True,Hybrid correctly translates 'damn ex'.
+crowds,Somewhere not too crowded and not damn ex lah.,not crowded; not expensive,Somewhere not too crowded and not damn ex.,Somewhere not too crowded and not very expensive.,True,True,
+crowds,Don't want a noisy place.,quiet place,Don't want a noisy place.,Don't want a noisy place.,True,True,
+queues,"The queue damn long, got other options?",avoid long queue; alternatives,"The queue is too long, do you have other options?","The queue is too long, do you have other options?",True,True,
+queues,Any place where we don't need to wait so long?,short waiting time,Any place where we don't need to wait so long?,Any place where we don't need to wait so long?,True,True,
+takeaway,Can tabao or not?,takeaway availability,Can you buy tabao?,Is takeaway available?,False,True,Baseline loses takeaway intent.
+takeaway,I want to dabao dinner back home.,takeaway dinner,I want to have dinner back home.,I want to get takeaway for dinner.,False,True,Baseline loses takeaway intent.
+dining,Can eat there or takeaway only?,dine-in versus takeaway,Can I eat there or takeaway only?,Can I eat there or takeaway only?,True,True,
+dining,Can book a table for tonight?,table reservation tonight,Can you book a table for tonight?,Can you book a table for tonight?,True,True,
+social,Can jio my friends to makan there?,invite friends to eat there,Can I invite my friends to meet there?,Can I invite my friends to eat there?,False,True,Baseline changes eating with friends to meeting.
+social,Where can we chill and eat?,relaxed place to eat,Where can we chill and eat?,Where can we chill and eat?,True,True,
+preference,I feel like having chicken but not fried food.,chicken; not fried,I feel like having chicken but not fried food.,I feel like having chicken but not fried food.,True,True,
+preference,"Somewhere casual, not too atas.",casual; not fancy,"Somewhere casual, not too shabby.","Somewhere casual, not too fancy.",True,True,Baseline changes 'atas' to 'shabby'.
+preference,I want something filling but not too oily.,filling; not too oily,I want something filling but not too oily.,I want something filling but not too oily.,True,True,
+mixed,Got good food nearby that's cheap and not crowded?,good food; nearby; cheap; not crowded,Have you got good food nearby that's cheap and not crowded?,Have you got good food nearby that's cheap and not crowded?,True,True,

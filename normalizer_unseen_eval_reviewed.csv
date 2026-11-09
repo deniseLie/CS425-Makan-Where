@@ -1,0 +1,21 @@
+category,input,expected_meaning,baseline_preserves_meaning,hybrid_preserves_meaning,notes
+budget,This makan place a bit too ex for my budget.,expensive relative to budget,True,True,
+budget,Can find a wallet-friendly lunch spot?,affordable lunch,True,True,
+budget,"Don't need atas food, simple and good can already.",simple food; not upscale,False,True,Baseline mistranslates atas; hybrid preserves the intended meaning.
+budget,The price quite steep leh.,relatively expensive,True,True,
+location,Got anywhere nearby that I can walk to?,nearby; walkable,True,True,
+location,This place damn far from campus.,far from campus,True,True,
+location,"Prefer somewhere central, not one corner of Singapore.",central location; not remote,True,True,
+location,Is there a makan place within walking distance?,restaurant within walking distance,False,True,Baseline loses restaurant specificity; hybrid retains it.
+dietary,Please recommend somewhere with halal options.,halal options,True,True,
+dietary,"I'm vegetarian, so no meat for me.",vegetarian; no meat,True,True,
+dietary,Any dishes without dairy?,dairy-free dishes,True,True,
+dietary,Cannot take spicy food.,avoid spicy food,True,True,
+food,Craving noodles with soup today.,noodles with soup,True,True,
+food,Anything crispy but not deep-fried?,crispy food; not deep-fried,True,True,
+food,I feel like having something soupy and warm.,"warm, soupy food",True,True,
+food,Got good nasi lemak nearby?,nasi lemak nearby,False,False,Both outputs omit the specific nasi lemak request.
+crowds,Prefer somewhere peaceful where we can talk.,quiet place suitable for conversation,True,True,
+queues,Don't want to spend half an hour queuing.,avoid long queue,True,True,
+takeaway,Can pack the leftovers for me?,request to pack leftovers,True,True,
+mixed,Need somewhere near campus with vegetarian food that's affordable.,near campus; vegetarian; affordable,True,True,
