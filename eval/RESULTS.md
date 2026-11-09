@@ -9,7 +9,7 @@ numbers are in `docs/presentation_draft.md` (from `training/qwen_track.py`).
 |---|---|---|---|---|
 | Recommender | 52 gold dialogues | P@3 / nDCG@3 | **0.910 / 0.841** | rating only: 0.833 / 0.716 |
 | Recommender | 52 gold dialogues | hit@3 / hard-constraint violations | 1.000 / 0% | 0.923 / 0% |
-| Normalizer | SEAT test (our 10% split, 160 pairs) | BLEU / chrF | **59.8 / 74.3** | copy input: 38.9 / 61.3 |
+| Normalizer | SEAT test (held out in training, 161 pairs) | BLEU / chrF | **55.3 / 69.6** | copy input: 30.4 / 55.2 |
 | Normalizer | gold Singlish turns (35) | BLEU / chrF | 13.2 / 41.3 | copy input: 10.7 / 43.6 |
 | Style detector | dev (1,189 turns, 185 Singlish) | macro F1 | 0.904 | keywords: **0.930** |
 | Style detector | gold turns (67, 35 Singlish) | macro F1 | **0.895** | keywords: 0.717 |
@@ -61,13 +61,18 @@ teammate should spot-check the grades before the numbers are final.
 
 | set | n | BLEU | chrF | exact match | copy input: BLEU | chrF |
 |---|---|---|---|---|---|---|
-| SEAT test (our 10% split, seed 42) | 160 | **59.8** | **74.3** | 36.2% | 38.9 | 61.3 |
+| SEAT test (held out in training) | 161 | **55.3** | **69.6** | 28.0% | 30.4 | 55.2 |
 | gold Singlish turns (restaurant requests) | 35 | 13.2 | 41.3 | 0% | 10.7 | 43.6 |
 
-- SEAT ships as one CSV with no test split, so the split is ours. The normalizer's training
-  details (`training_args.bin`: output dir `flan_t5_cleaned`, 3 epochs) don't say which pairs it
-  saw; if it was trained on all of SEAT, the SEAT number is optimistic. Varidhi's held-out split
-  would make it exact.
+- SEAT ships as one CSV, so `normalizer_training.ipynb` splits it 80 / 10 / 10 (sklearn
+  `train_test_split`, `random_state=42`) and trained the served model (`flan_t5_cleaned`) on the
+  80%. `eval_normalizer.py` rebuilds that split, so these 161 pairs were never seen in training
+  (they are the rows of `model_comparison.csv`, in the same order).
+- An earlier version of this eval used its own seeded 10% split: 132 of its 160 pairs were
+  training data, and it scored 59.8 / 74.3.
+- The fine-tuned column of `model_comparison.csv` scores lower (BLEU 33.0, chrF 51.9) because it
+  comes from an earlier checkpoint, made before the training data was cleaned and the model
+  retrained.
 - On our restaurant requests the normalizer is no better than copying the input (chrF 41.3 vs
   43.6). Part of that is reference style (the gold rewrites are full sentences, "Jurong West is
   fine."), but the real problem is entities: **14 of 35 requests lose or change a dish or place

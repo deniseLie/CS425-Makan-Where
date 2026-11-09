@@ -3,10 +3,11 @@
 
 Test sets:
   seat-test   SEAT (kumarsujit474/singlish-english-aligned-translation-seat on the HF Hub, 1,603
-              human-translated pairs): a fixed 10% split, shuffled with seed 42. SEAT ships as one
-              file with no official test split, so this is ours; if the normalizer was trained on
-              all of SEAT these rows were seen in training (see the exact-match line).
-  seat-all    every SEAT pair (optional)
+              human-translated pairs): the 161-pair test split the normalizer was held out from.
+              SEAT ships as one file, so normalizer_training.ipynb splits it 80 / 10 / 10 with
+              sklearn's train_test_split (random_state=42, then the 20% halved the same way);
+              this rebuilds that split (the rows of model_comparison.csv, in the same order).
+  seat-all    every SEAT pair (optional; 80% of them were training data)
   gold        the Singlish user turns of eval/gold/*.jsonl, raw -> english_version: restaurant
               requests the normalizer has certainly not seen
 
@@ -24,9 +25,7 @@ Writes every output to outputs/eval/normalizer_<set>.jsonl.
 from __future__ import annotations
 
 import argparse
-import csv
 import json
-import random
 import sys
 import time
 from pathlib import Path
@@ -36,27 +35,26 @@ sys.path.insert(0, str(ROOT / "backend"))
 
 SEAT_REPO = "kumarsujit474/singlish-english-aligned-translation-seat"
 SEAT_FILE = "SEAT_Dataset.csv"
-TEST_FRAC, SEED = 0.1, 42
+SEED = 42  # normalizer_training.ipynb's random_state
 
 
 def load_seat() -> list[dict]:
+    """Every SEAT row in file order (the split below depends on the order and count: 1,603)."""
+    import pandas as pd
     from huggingface_hub import hf_hub_download
 
-    path = hf_hub_download(SEAT_REPO, SEAT_FILE, repo_type="dataset")
-    rows, seen = [], set()
-    with open(path, encoding="utf-8") as f:
-        for r in csv.DictReader(f):
-            src, ref = (r.get("singlish") or "").strip(), (r.get("english") or "").strip()
-            if src and ref and (src, ref) not in seen:
-                seen.add((src, ref))
-                rows.append({"id": f"seat{len(rows):04d}", "src": src, "ref": ref})
-    return rows
+    df = pd.read_csv(hf_hub_download(SEAT_REPO, SEAT_FILE, repo_type="dataset"))
+    return [{"id": f"seat{i:04d}", "src": str(s).strip(), "ref": str(e).strip()}
+            for i, (s, e) in enumerate(zip(df["singlish"], df["english"]))]
 
 
 def seat_test(rows: list[dict]) -> list[dict]:
-    idx = list(range(len(rows)))
-    random.Random(SEED).shuffle(idx)
-    return [rows[i] for i in sorted(idx[:round(len(rows) * TEST_FRAC)])]
+    """The notebook's test split: 20% held out, then halved into validation and test."""
+    from sklearn.model_selection import train_test_split
+
+    _, rest = train_test_split(rows, test_size=0.2, random_state=SEED)
+    _, test = train_test_split(rest, test_size=0.5, random_state=SEED)
+    return test
 
 
 def load_gold_turns(path: Path) -> list[dict]:
