@@ -411,6 +411,12 @@ dietary,dont eat beef,no beef,,,
 dietary,don't eat beef,no beef,,,
 dietary,cannot eat beef,no beef,,,
 dietary,beef free,no beef,,,
+dietary,non-vegetarian,non-vegetarian,,,leaves out the vegetarian-only places
+dietary,non vegetarian,non-vegetarian,,,leaves out the vegetarian-only places
+dietary,non-veg,non-vegetarian,,,leaves out the vegetarian-only places
+dietary,non veg,non-vegetarian,,,leaves out the vegetarian-only places
+dietary,nonveg,non-vegetarian,,,leaves out the vegetarian-only places
+dietary,not vegetarian,non-vegetarian,,,leaves out the vegetarian-only places
 setting,hawker,hawker,,,
 setting,hawker centre,hawker,,,
 setting,hawker center,hawker,,,

@@ -63,6 +63,15 @@ def test_no_beef_drops_beef_places():
     assert all("Gyukatsu" not in c["name"] for c in recommender.candidates(s))
 
 
+def test_non_vegetarian_drops_vegetarian_only_places():
+    veg_ids = set(places.loc[places["vegetarian"].astype(bool), "place_id"])
+    assert veg_ids  # the sample needs a vegetarian place for this test to mean anything
+    s = DialogueState(slots={"dietary": "non-vegetarian"})
+    ids = {c["place_id"] for c in recommender.candidates(s)}
+    assert ids == set(places["place_id"]) - veg_ids
+    assert all(not filters.violations(s, c) for c in recommender.candidates(s))
+
+
 def test_aircon_keeps_unknown_and_drops_hawker():
     ids = {c["place_id"] for c in recommender.candidates(DialogueState(slots={"setting": "aircon"}))}
     assert "P001" in ids          # setting aircon

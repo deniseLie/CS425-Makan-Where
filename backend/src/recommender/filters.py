@@ -8,7 +8,8 @@ table. Hard constraints:
               ("near bras basah"), within state.radius_km of that spot instead
     radius    within state.radius_km of the named spot, else the user (if known), else the
               area's centre
-    dietary   halal = 1 | vegetarian = 1 | "no beef": nothing beef-named
+    dietary   halal = 1 | vegetarian = 1 | "non-vegetarian": vegetarian = 0 |
+              "no beef": nothing beef-named
     setting   setting = ?;  "aircon": not known to be open-air (unknown is kept)
     time      open at that time (places with unknown hours are kept)
     budget    top listed estimate <= cap (cap from budget_max or the budget slot)
@@ -101,6 +102,8 @@ def build_query(state: DialogueState, user_latlon=None, now: Optional[datetime] 
             where.append("halal = 1")
         elif s["dietary"] == "vegetarian":
             where.append("vegetarian = 1")
+        elif s["dietary"] == "non-vegetarian":
+            where.append("IFNULL(vegetarian, 0) = 0")
         elif s["dietary"] == "no beef":
             text = "LOWER(name || ' ' || IFNULL(tags, '') || ' ' || IFNULL(description, ''))"
             where += [f"{text} NOT LIKE ?" for _ in BEEF_WORDS]
@@ -164,6 +167,8 @@ def violations(state: DialogueState, place: dict) -> list[str]:
     bad = []
     if filled(s["dietary"]) and s["dietary"] in ("halal", "vegetarian") and not place[s["dietary"]]:
         bad.append(s["dietary"])
+    if s["dietary"] == "non-vegetarian" and place["vegetarian"]:
+        bad.append("non-vegetarian")
     if filled(s["cuisine"]) and place.get("cuisine") != s["cuisine"] \
             and s["cuisine"] not in str(place.get("tags", "")).split(";"):
         bad.append("cuisine")

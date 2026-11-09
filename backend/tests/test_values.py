@@ -37,6 +37,9 @@ from src.tracker.values import (CUISINES, LANDMARKS, PLANNING_AREAS, REGIONS, TA
     ("dietary", "vegan", "vegetarian"),
     ("dietary", "no pork", "halal"),
     ("dietary", "no beef", "no beef"),
+    ("dietary", "non-vegetarian", "non-vegetarian"),
+    ("dietary", "Non Vegetarian", "non-vegetarian"),
+    ("dietary", "non-veg", "non-vegetarian"),
     # setting
     ("setting", "hawker", "hawker"),
     ("setting", "aircon", "aircon"),

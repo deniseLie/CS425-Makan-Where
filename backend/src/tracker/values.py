@@ -66,10 +66,13 @@ TABLES: dict[str, dict[str, str]] = {
     "area": {**{a: a for a in PLANNING_AREAS}, **{r: r for r in REGIONS},
              "northeast": "north-east", "north east": "north-east", **LANDMARKS},
     "budget": {"above $20": ANY},
-    # vegan / no pork -> the closest value the place list can check; no beef has no filter yet
+    # vegan / no pork -> the closest value the place list can check; no beef has no filter yet.
+    # non-vegetarian -> leave out the vegetarian-only places
     "dietary": {"halal": "halal", "muslim": "halal", "no pork": "halal",
                 "vegetarian": "vegetarian", "veggie": "vegetarian", "vegan": "vegetarian",
-                "no beef": "no beef"},
+                "no beef": "no beef",
+                **{v: "non-vegetarian" for v in ("non-vegetarian", "non vegetarian", "non-veg",
+                                                 "non veg", "nonveg", "not vegetarian")}},
     "setting": {"hawker": "hawker", "kopitiam": "hawker", "coffeeshop": "hawker",
                 "aircon": "aircon", "cafe": "cafe", "food court": "food court", "foodcourt": "food court",
                 "restaurant": "restaurant", "sit-down": "restaurant",

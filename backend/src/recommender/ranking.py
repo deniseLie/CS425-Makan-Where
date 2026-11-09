@@ -30,7 +30,9 @@ CHEAP_RANGE = (3.0, 40.0)
 
 def request_text(state: DialogueState, query_norm: str, slots: Optional[dict] = None) -> str:
     s = slots or filters.slots_of(state)
-    words = [s[k] for k in ("cuisine", "dietary", "setting") if filters.filled(s[k])]
+    # "non-vegetarian" would pull the ranking towards "vegetarian" descriptions, so it's left out
+    words = [s[k] for k in ("cuisine", "dietary", "setting")
+             if filters.filled(s[k]) and s[k] != "non-vegetarian"]
     said = state.slots.get("cuisine", "")
     if filters.filled(said) and said.lower() != s["cuisine"]:
         words.append(said)
