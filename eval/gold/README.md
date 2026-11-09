@@ -12,6 +12,7 @@ Store them as **JSONL**: one dialogue per line, files named `gold_<annotator>_<n
 | `annotator` | str | who labelled it |
 | `turns` | list | the user turns, in order (see below) |
 | `relevant_place_ids` | list[str] | every `place_id` in `data/master/places.csv` that would be a correct final recommendation for this user (order = most relevant first) |
+| `relevance` | object, optional | graded judgments `{place_id: 0 \| 1 \| 2}` for the judged pool (below). When present, `eval_recommender.py` uses it: P@K / hit@K count grade ≥ 1, strict P@K grade 2, nDCG@K uses the grades as gains. `relevant_place_ids` then lists the grade ≥ 1 places, grade 2 first |
 
 ## Per user turn
 
@@ -31,6 +32,28 @@ Values are **place-list values, after translation** (`src/tracker/values.py`): `
 
 You do not label system replies - the policy decides those, and the tracker is evaluated on the
 state after each user turn.
+
+## Judging relevance (pooling)
+
+38,000 places can't all be judged, so judge a pool: `python eval/eval_recommender.py --pool pool.jsonl`
+writes, per dialogue, the union of every compared ranking's top places (hybrid and rating-only to
+depth 5, each ablation to depth 3), shuffled and without system names, with the details a judge
+needs. Every top 3 that is scored is inside the pool, so P@3 and nDCG@3 are fully judged. Grade each
+place on its own, on an absolute scale:
+
+| grade | meaning |
+|---|---|
+| 2 | great pick: meets every stated preference and fits the specific request (serves the dish asked for, close to the spot named), nothing makes it a poor choice |
+| 1 | acceptable: meets the stated preferences, a reasonable place to send the user, but a weaker fit (generic place when a dish was asked, edge of the radius, ...) |
+| 0 | not a good recommendation: breaks a stated preference, is not a place for that meal (caterer, canteen, drinks / dessert only), or doesn't serve what was asked |
+
+An unknown rating, price estimate or opening hours is neutral, not a reason for 0.
+
+## Files
+
+| file | dialogues | made by |
+|---|---|---|
+| `gold_claude_01.jsonl` | 52 (27 Singlish, 25 English; 1-4 turns) | **Draft by Claude, for the team to review.** Dialogues written by Claude (not real users); `gold_state` built with the backend's own value tables (`aliases.canonical`, `track_landmark`, `parse_budget`); places judged blind by Claude subagents from the `--pool` file with the rubric above (467 places, plus 8 the hybrid ranker put in its top 3 when ranking on the normalizer's output, `--query-from`). Dialogues were adjusted so every final state has at least 3 candidates. Replace `annotator` when a team member re-checks a dialogue. |
 
 ## Example (pretty-printed; in the file it is one line)
 

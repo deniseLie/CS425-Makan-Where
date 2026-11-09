@@ -20,12 +20,37 @@ def test_metric_functions():
     assert ev.ndcg_at_k(["b", "a"], ["a", "b"], 2) < 1.0
 
 
-def test_evaluate_on_sample(tmp_path):
-    def dialogue(i, slots, english, relevant):
-        state = DialogueState(slots=slots).to_dict()
-        return {"dialogue_id": f"d{i}", "annotator": "test", "relevant_place_ids": relevant,
-                "turns": [{"raw": english, "english_version": english, "style": "english", "gold_state": state}]}
+def test_graded_relevance():
+    grades = {"a": 2, "b": 1, "c": 0}
+    assert ev.ndcg_at_k(["a", "b", "c"], [], 3, grades) == pytest.approx(1.0)
+    assert ev.ndcg_at_k(["b", "a", "c"], [], 3, grades) < 1.0
+    assert ev.ndcg_at_k(["c"], [], 1, grades) == 0.0
+    d = {"relevance": grades, "relevant_place_ids": ["a", "b"]}
+    assert ev.relevant_ids(d) == {"a", "b"} and ev.relevant_ids(d, 2) == {"a"}
+    assert ev.relevant_ids({"relevant_place_ids": ["a"]}) == {"a"}
+    assert ev.relevant_ids({"relevant_place_ids": ["a"]}, 2) == set()
 
+
+def dialogue(i, slots, english, relevant):
+    state = DialogueState(slots=slots).to_dict()
+    return {"dialogue_id": f"d{i}", "annotator": "test", "relevant_place_ids": relevant,
+            "turns": [{"raw": english, "english_version": english, "style": "english", "gold_state": state}]}
+
+
+def test_pool_holds_every_scored_top_k():
+    gold = [dialogue(1, {"cuisine": "korean", "area": "downtown core"}, "Korean near Bugis, kimchi stew", []),
+            dialogue(2, {"area": "downtown core"}, "Anything near Bugis", [])]
+    pooled = ev.pool(gold, k=3)
+    for d, p in zip(gold, pooled):
+        ids = [x["place_id"] for x in p["places"]]
+        assert len(ids) == len(set(ids)) and p["dialogue_id"] == d["dialogue_id"]
+        state, query = ev.last_request(d)
+        for _, weights, _ in ev.systems(3):
+            assert set(ev.recommend(state, query, 3, weights)) <= set(ids)
+    json.dumps(pooled, allow_nan=False)  # valid JSON: no NaN fields
+
+
+def test_evaluate_on_sample(tmp_path):
     gold = [dialogue(1, {"cuisine": "korean", "area": "downtown core"}, "Korean near Bugis, kimchi stew", ["P001", "P002"]),
             dialogue(2, {"cuisine": "malay", "area": "east", "dietary": "halal"}, "Halal Malay food in the east", ["P012"])]
     path = tmp_path / "gold_test_01.jsonl"
