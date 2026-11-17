@@ -171,6 +171,15 @@ def test_exact_budget_wins_over_tracker_and_is_kept_until_updated(session, monke
     assert session.state.slots["budget"] == ANY
 
 
+@pytest.mark.parametrize("answer", ["cheap cheap lah", "too ex leh", "anything also can, just recommend lah"])
+def test_budget_is_asked_only_once(session, answer):
+    _, d1 = session.step("cheap western food at jurong west")
+    assert d1["action"]["ask_slot"] == "budget"
+    _, d2 = session.step(answer)
+    assert d2["action"]["ask_slot"] != "budget"
+    assert d2["state"]["slots"]["budget"] == ANY and d2["state"]["budget_max"] is None
+
+
 def test_above_budget_suggestions_require_opt_in_and_keep_cap(session):
     reply, debug = session.step("western food in river valley, max $5")
     assert not debug["action"]["places"] and "within your budget" in reply

@@ -20,7 +20,7 @@ from src.generator import generate, template_reply
 from src.normalizer import normalize
 from src.policy import apply_tracker_output, decide
 from src.policy.rules import above_budget
-from src.schemas import UNKNOWN, DialogueState, PolicyAction, TrackerOutput, Turn
+from src.schemas import ANY, UNKNOWN, DialogueState, PolicyAction, TrackerOutput, Turn
 from src.style import detect_style
 from src.tracker import track
 from src.tracker.values import BUDGET_UNCLEAR, TABLES, budget_update, dietary_update, translate
@@ -133,6 +133,10 @@ class MakanSession:
                 and asked != "budget" and "$" not in answer and "budget" not in answer
                 and re.search(r"\b(?:cheaper|too expensive|too ex|too pricey)\b", answer)):
             budget = None
+        # The budget is asked once: a reply that still names no amount ("cheap cheap lah") drops
+        # the cap instead of asking again, so the dialogue can't get stuck on it.
+        if budget == BUDGET_UNCLEAR and asked == "budget":
+            budget = ANY
         if budget is not None:
             tracker_out.slots["budget"] = budget
             if tracker_out.critique == "too_expensive":
