@@ -28,6 +28,12 @@ from src.tracker.values import BUDGET_UNCLEAR, TABLES, budget_update, dietary_up
 LOG_DIR = Path(__file__).resolve().parents[1] / "logs"
 
 
+def normalize_for(raw_text: str, style: str) -> str:
+    """The text the tracker and ranker read. English turns skip the normalizer: it rewrites every
+    turn, and on English that only shuffles the ranker's words (eval/RESULTS.md, Normalizer)."""
+    return raw_text if style == "english" else normalize(raw_text)
+
+
 def mentioned_places(reply: str, names: list[str]) -> set[str]:
     low = reply.lower()
     # substring check first: compiling a regex for each of ~31k place names takes seconds
@@ -109,10 +115,10 @@ class MakanSession:
                 except Exception:  # a dropped listener must not break the turn
                     pass
 
-        normalized = normalize(raw_text)
-        lap("normalize", normalized=normalized)
         style = detect_style(raw_text)
         lap("style", style=style)
+        normalized = normalize_for(raw_text, style)
+        lap("normalize", normalized=normalized, skipped=style == "english")
         turn = Turn(raw=raw_text, normalized=normalized, style=style)
         last = self.last_action
         answer = raw_text.lower().strip().rstrip(".!?")

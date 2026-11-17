@@ -19,6 +19,7 @@ export function logLine(event, t, partial, prevState) {
       const took = `(${seconds(event.ms)})`
       const tag = NAME[event.stage] ?? event.stage
       if (event.stage === 'normalize') {
+        if (event.skipped) return line(tag, `skipped: English ${took}`, 'muted')
         const same = event.normalized.trim().toLowerCase() === partial.raw.trim().toLowerCase()
         return line(tag, same ? `unchanged ${took}` : `"${event.normalized}" ${took}`)
       }

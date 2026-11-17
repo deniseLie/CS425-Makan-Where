@@ -1,8 +1,9 @@
-# Evaluation results (9 Nov 2026)
+# Evaluation results (9 Nov 2026; normalizer and tracker rows 17 Nov)
 
 The proposal's metrics for the recommender, normalizer, style detector and reply generator, run on
-the models the backend serves today (`makan-flan-normalizer`, `makan-singbert-style-classifier`,
-`makan-qwen-reply` on Qwen2.5-1.5B-Instruct) and the current `data/master/places.csv`. The
+the models the backend serves today (`makan-flan-normalizer-masked`, `makan-singbert-style-classifier`,
+`makan-qwen-reply` on Qwen2.5-1.5B-Instruct) and the current `data/master/places.csv`. Since 17 Nov
+the backend normalizes only the turns the style detector calls Singlish (English-skip). The
 tracker's MultiWOZ and synthetic numbers are in `docs/presentation_draft.md` (from
 `training/qwen_track.py`); the tracker on the gold dialogues, with and without the normalizer, is
 under Normalizer below.
@@ -11,10 +12,11 @@ under Normalizer below.
 |---|---|---|---|---|
 | Recommender | 52 gold dialogues | P@3 / nDCG@3 | **0.910 / 0.836** | rating only: 0.833 / 0.710 |
 | Recommender | 52 gold dialogues | hit@3 / hard-constraint violations | 1.000 / 0% | 0.923 / 0% |
-| Normalizer | SEAT test (held out in training, 161 pairs) | BLEU / chrF | **53.3 / 68.4** | copy input: 30.4 / 55.2 |
-| Normalizer | gold Singlish turns (35) | BLEU / chrF | **11.6 / 44.4** | copy input: 10.7 / 43.6 |
-| Tracker | gold Singlish turns (35) | joint goal accuracy | with the normalizer: 0.571 | without it: 0.571 |
-| Whole pipeline | 27 gold Singlish dialogues | P@3 / nDCG@3 of the final picks | with the normalizer: 0.827 / 0.761 | without it: 0.827 / 0.761 |
+| Normalizer | SEAT test (held out in training, 161 pairs) | BLEU / chrF | **53.8 / 68.1** | copy input: 30.4 / 55.2 |
+| Normalizer | gold Singlish turns (35) | BLEU / chrF | **22.0 / 54.9** | copy input: 10.7 / 43.6 |
+| Tracker | gold Singlish turns (35) | joint goal accuracy | with the normalizer: **0.600** | without it: 0.571 |
+| Whole pipeline | 27 gold Singlish dialogues | P@3 / nDCG@3 of the final picks | with the normalizer: 0.827 / **0.783** | without it: 0.827 / 0.761 |
+| Whole pipeline | all 52 gold dialogues | P@3 / nDCG@3 of the final picks | English-skip: **0.891 / 0.820** | normalize every turn: 0.885 / 0.815; none: 0.891 / 0.809 |
 | Style detector | dev (1,189 turns, 185 Singlish) | macro F1 | 0.904 | keywords: **0.930** |
 | Style detector | gold turns (67, 35 Singlish) | macro F1 | **0.895** | keywords: 0.717 |
 | Generator | dev (276 replies) | replies passing every check | **96.4%** (266/276) | teacher replies: 100% |
@@ -66,10 +68,55 @@ teammate should spot-check the grades before the numbers are final.
 `python eval/eval_normalizer.py` (translation quality), `python eval/eval_tracker.py` (its effect on
 the pipeline)
 
-**In short: with entity protection (b988c17) and the alias table's words protected too, the
-normalizer no longer hurts the pipeline: on every gold turn and dialogue it gives the same state
-and the same top 3 as the user's raw text. It doesn't help either: it returns 27 of the 35
-Singlish requests unchanged.**
+**In short (17 Nov): the masked normalizer (`makan-flan-normalizer-masked`, trained with typed
+placeholders and 1,000 synthetic restaurant requests) is the first one that helps the pipeline:
+on Singlish it gets one more turn fully right than the raw text and ranks the final picks better.
+On English it only rewords the request and costs a pick, so the backend now skips it for turns
+the style detector calls English. That version is best or tied-best on every measure.**
+
+The sections after this one are the 9 Nov analysis of the earlier model (`makan-flan-normalizer`),
+kept because they explain why the entity guards exist.
+
+### 17 Nov: the masked model and English-skip
+
+`python eval/eval_tracker.py --variants normalizer raw gated`, run on the Origami GPU cluster.
+`gated` is what the backend runs now (`normalize_for` in `backend/src/pipeline.py`): the
+normalizer's output when SingBERT says "singlish", the raw text when it says "english". The skip
+uses SingBERT's prediction, not the gold label, so its mistakes count.
+
+| | joint goal acc. | slot acc. | P@3 | strict P@3 | nDCG@3 | unjudged in top 3 |
+|---|---|---|---|---|---|---|
+| **Singlish** (35 turns / 27 dialogues): normalize every turn | **0.600** | **0.929** | 0.827 | **0.617** | **0.783** | 0 |
+| Singlish: English-skip (as served) | **0.600** | **0.929** | 0.827 | **0.617** | **0.783** | 0 |
+| Singlish: raw text (no normalizer) | 0.571 | 0.924 | 0.827 | 0.593 | 0.761 | 0 |
+| **English** (32 turns / 25 dialogues): normalize every turn | 0.781 | 0.953 | 0.947 | 0.640 | 0.849 | 1 |
+| English: English-skip (as served) | 0.781 | 0.953 | **0.960** | **0.653** | **0.860** | 0 |
+| English: raw text (no normalizer) | 0.781 | 0.953 | **0.960** | **0.653** | **0.860** | 0 |
+| **All** (67 turns / 52 dialogues): normalize every turn | **0.687** | **0.940** | 0.885 | 0.628 | 0.815 | 1 |
+| All: English-skip (as served) | **0.687** | **0.940** | **0.891** | **0.635** | **0.820** | 0 |
+| All: raw text (no normalizer) | 0.672 | 0.938 | **0.891** | 0.622 | 0.809 | 0 |
+
+- Translation quality (`eval_normalizer.py`, from `NORMALIZER_README.md`): on the gold Singlish
+  turns BLEU / chrF rose from 12.5 / 44.7 (the earlier model, same typed placeholders) to
+  22.0 / 54.9, and the model now rewrites every request instead of returning 46% unchanged. On
+  SEAT it holds (54.5 / 68.9 → 53.8 / 68.1).
+- Singlish: one turn has all six slots right only with the normalizer, none only without it. In
+  the 9 Nov run the earlier model tied the raw text on every Singlish measure.
+- English: the tracker reads both texts the same way (joint 0.781 either way), but the ranker's
+  content score reads the rewording, which loses a pick and puts one ungraded place in a top 3
+  (counted as not relevant). Skipping the normalizer for English gives exactly the raw text's
+  scores, and saves about 1 s per English message on a laptop CPU.
+- SingBERT got 32 of 35 Singlish and 28 of 32 English gold turns right. None of the 7 misses
+  changed a score: a Singlish turn read as English gets the raw text, which tracks as well here,
+  and an English turn read as Singlish gets the normalizer, which the tracker reads the same as
+  the raw text on English.
+- The differences are one turn and a few picks on a small, Claude-drafted test set: "best or
+  tied-best everywhere", not a large gain.
+- How it was run: the same replay as below (template replies, gold style for the replies). The
+  tracker ran on a GPU in float16, with every prompt generated fresh; the raw-text Singlish scores
+  match the 9 Nov CPU run exactly, so the two runs compare.
+
+### 9 Nov: the earlier model
 
 - The normalizer is meant to turn Singlish into proper English before the rest of the bot reads it.
   The bare model handles the chatty parts fine ("lah", "leh", "got anot"), but it often
@@ -93,14 +140,13 @@ Singlish requests unchanged.**
 - The bot copes without a normalizer because Singlish already contains the words the search needs
   ("laksa", "katong", "tekka"), and "lah", "can" and "got" don't throw it off. A perfect normalizer
   (our hand-written English rewrites) does only slightly better than none at all.
-- **Recommendation:** either choice is now safe: the normalizer ties the raw text on every measure
-  here. The raw text is simpler and saves about 1 s per message on a laptop CPU. The normalizer is
-  worth keeping if it gets fine-tuned on restaurant requests (below); rerun `eval_tracker.py` after
-  any change to it.
+- Recommendation on 9 Nov: either choice is safe, since the normalizer ties the raw text on every
+  measure; keep it only if it gets fine-tuned on restaurant requests. (Done on 17 Nov: the masked
+  model above, which now helps on Singlish.) Rerun `eval_tracker.py` after any change to it.
 - Caveat: the 52 test dialogues (27 Singlish) are a Claude-written draft. That's enough to show the
   direction, but a teammate should spot-check them before exact numbers are quoted.
 
-### Translation quality
+### Translation quality (9 Nov, earlier model)
 
 | set | normalizer | n | BLEU | chrF | exact match | returned unchanged | copy input: BLEU | chrF |
 |---|---|---|---|---|---|---|---|---|
@@ -148,7 +194,7 @@ Singlish requests unchanged.**
   It now comes back unchanged in 0.6 s. The guards add about 0.3 s per input (median 1.1 s vs 0.8 s
   on a laptop CPU).
 
-### Effect on the pipeline
+### Effect on the pipeline (9 Nov, earlier model)
 
 The normalizer's text goes to three places: the tracker's `Normalized:` line, the ranker's content
 score (`query_norm`) and landmark detection. Each was run with the normalizer's output (as the
@@ -246,9 +292,9 @@ English turns (32) give the same result every way (joint 0.781, slot accuracy 0.
     alias words protected, which put no new place in a top 3.
 - Done: the alias words are protected and restaurant names are not (`normalizer/entities.py`),
   with unit tests in `backend/tests/test_normalizer_protect.py`.
-- Still open, if the team keeps a normalizer:
-  - fine-tune it on in-domain pairs (the synthetic `[TRACK]` data has Singlish lines with their
-    English), so it does more than drop particles on restaurant requests;
+- Done on 17 Nov: fine-tuned on in-domain pairs (1,000 synthetic restaurant requests with typed
+  placeholders, `training/build_normalizer_data.py`); results in the 17 Nov section above.
+- Still open:
   - unit tests for the guards in `normalizer/hf.py` (dropped placeholder, repetition, length): the
     backend tests replace the normalizer with a fake, so that code doesn't run in `pytest`.
 

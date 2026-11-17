@@ -7,8 +7,8 @@ export const SOURCE_LABEL = { llm: 'fine-tuned LLM', template: 'template', guard
 // One card per stage. `key` matches debug.timings_ms and the stream's stage events.
 export const STAGES = [
   { key: 'raw', title: 'You said' },
-  { key: 'normalize', title: 'Normalizer', n: 1 },
-  { key: 'style', title: 'Style', n: 2 },
+  { key: 'style', title: 'Style', n: 1 },
+  { key: 'normalize', title: 'Normalizer', n: 2 },
   { key: 'track', title: 'Tracker', n: 3 },
   { key: 'policy', title: 'Policy', n: 4 },
   { key: 'generate', title: 'Generator', n: 5 },
@@ -43,7 +43,9 @@ function describe(debug, prevDebug) {
   const out = { raw: { changed: false, body: <q>{debug.raw}</q> } }
   const prevState = prevDebug?.state
 
-  if (debug.normalized != null) {
+  if (debug.normalized != null && debug.style === 'english') {
+    out.normalize = { changed: false, note: 'skipped', body: <>English → read as typed</> }
+  } else if (debug.normalized != null) {
     const diff = wordDiff(debug.raw, debug.normalized)
     const rewrote = diff.some((d) => d.op !== 'same')
     out.normalize = {

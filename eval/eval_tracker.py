@@ -9,6 +9,8 @@ versions of that line:
 
   normalizer   the Flan-T5 normalizer's output, as the backend runs today
   raw          the user's own text: no normalizer (build_prompt's `t.normalized or t.raw`)
+  gated        as the backend runs since English-skip: the normalizer's output when the SingBERT
+               style detector says "singlish", the raw text when it says "english"
   gold         the turn's english_version, what a perfect normalizer would write
 
 The pipeline gives the same text to the ranker (query_norm) and to landmark detection. So the
@@ -50,11 +52,12 @@ from src.llm import MAX_NEW_TOKENS  # noqa: E402
 from src.schemas import SLOTS, UNKNOWN, Turn  # noqa: E402
 from src.tracker.hf import build_prompt, parse  # noqa: E402
 
-VARIANTS = ("normalizer", "raw", "gold")
+VARIANTS = ("normalizer", "raw", "gated", "gold")
 STATE_FIELDS = (*SLOTS, "radius_km", "budget_max", "landmark")
 
 CACHE: dict[str, str] = {}  # md5 of a tracker prompt -> the tracker's text
 CURRENT: dict = {}          # the gold turn and variant being stepped
+STYLES: dict[str, str] = {}  # raw text -> the style detector's label, for the gated variant
 
 
 def key(prompt: str) -> str:
@@ -73,6 +76,22 @@ def normalizer_outputs(texts: list[str], path: Path) -> dict[str, str]:
             done[t] = hf.normalize(t)
         path.write_text(json.dumps(done, ensure_ascii=False, indent=1), encoding="utf-8")
         hf._load.cache_clear()
+        gc.collect()
+    return done
+
+
+def style_outputs(texts: list[str], path: Path) -> dict[str, str]:
+    """{raw text: detect_style(raw text)}, cached in `path`. The model is freed afterwards."""
+    done = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    todo = [t for t in texts if t not in done]
+    if todo:
+        from src.style import hf
+
+        print(f"detecting the style of {len(todo)} turns", flush=True)
+        for t in todo:
+            done[t] = hf.detect_style(t)
+        path.write_text(json.dumps(done, ensure_ascii=False, indent=1), encoding="utf-8")
+        hf._classifier.cache_clear()
         gc.collect()
     return done
 
@@ -112,13 +131,16 @@ def normalized(variant: str, turn: dict, norm_out: dict[str, str]) -> str:
         return norm_out[turn["raw"]]
     if variant == "gold":
         return turn.get("english_version") or turn["raw"]
+    if variant == "gated" and STYLES[turn["raw"]] == "singlish":
+        return norm_out[turn["raw"]]
     return turn["raw"]
 
 
 def patch_pipeline(norm_out: dict[str, str]) -> None:
     """MakanSession.step with the variant's Normalized text, the gold style, template replies and
-    the tracker's cached output."""
-    pipeline.normalize = lambda raw: normalized(CURRENT["variant"], CURRENT["turn"], norm_out)
+    the tracker's cached output. The gated variant's skip uses the detector's style (STYLES), but
+    the replies keep the gold style, so only the Normalized text differs between variants."""
+    pipeline.normalize_for = lambda raw, style: normalized(CURRENT["variant"], CURRENT["turn"], norm_out)
     pipeline.detect_style = lambda raw: CURRENT["turn"]["style"]
     pipeline.generate = lambda action, style, raw: template_reply(action, style)
     pipeline.track = lambda history, prev: parse(CACHE[key(build_prompt(history))], prev)
@@ -187,9 +209,15 @@ def main() -> None:
     gold = ev.load_gold(args.gold)
     by_id = {d["dialogue_id"]: d for d in gold}
     norm_out = {}
-    if "normalizer" in args.variants:
-        texts = sorted({t["raw"] for d in gold for t in d["turns"]})
+    texts = sorted({t["raw"] for d in gold for t in d["turns"]})
+    if "normalizer" in args.variants or "gated" in args.variants:
         norm_out = normalizer_outputs(texts, args.out.with_suffix(".normalized.json"))
+    if "gated" in args.variants:
+        STYLES.update(style_outputs(texts, args.out.with_suffix(".styles.json")))
+        turns = [t for d in gold for t in d["turns"]]
+        for g in ("singlish", "english"):
+            got = [STYLES[t["raw"]] for t in turns if t["style"] == g]
+            print(f"style detector on gold {g} turns: {got.count(g)}/{len(got)} right", flush=True)
     patch_pipeline(norm_out)
     if cache_path.exists():
         for line in cache_path.read_text(encoding="utf-8").splitlines():

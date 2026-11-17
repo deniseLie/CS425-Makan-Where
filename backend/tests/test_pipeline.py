@@ -199,10 +199,22 @@ def test_dietary_question_accepts_no_requirement(session, answer):
 
 
 
+def test_english_turns_skip_the_normalizer(session, monkeypatch):
+    calls = []
+    monkeypatch.setattr(pipeline, "normalize", lambda text: calls.append(text) or "REWRITTEN")
+    stages = {}
+    _, d1 = session.step("korean food in bugis please", on_stage=lambda s, ms, out: stages.update({s: out}))
+    assert d1["style"] == "english" and d1["normalized"] == "korean food in bugis please" and not calls
+    assert stages["normalize"]["skipped"] is True
+    _, d2 = session.step("korean lah, bugis side", on_stage=lambda s, ms, out: stages.update({s: out}))
+    assert d2["style"] == "singlish" and d2["normalized"] == "REWRITTEN" and calls == ["korean lah, bugis side"]
+    assert stages["normalize"]["skipped"] is False
+
+
 def test_debug_reports_stage_timings(session):
     _, debug = session.step("korean lah, bugis side")
     timings = debug["timings_ms"]
-    assert list(timings) == ["normalize", "style", "track", "policy", "generate"]
+    assert list(timings) == ["style", "normalize", "track", "policy", "generate"]
     assert all(isinstance(ms, int) and ms >= 0 for ms in timings.values())
 
 

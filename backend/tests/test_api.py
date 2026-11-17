@@ -91,8 +91,8 @@ def test_stream_reports_each_stage_then_the_reply(client):
     events = _events(r)
     assert events[0] == {"type": "start"} and events[-1]["type"] == "done"
     stages = [e for e in events if e["type"] == "stage"]
-    assert [e["stage"] for e in stages] == ["normalize", "style", "track", "policy", "generate"]
-    assert "normalized" in stages[0] and stages[1]["style"] in ("singlish", "english")
+    assert [e["stage"] for e in stages] == ["style", "normalize", "track", "policy", "generate"]
+    assert stages[0]["style"] in ("singlish", "english") and "normalized" in stages[1]
     assert stages[2]["state"]["slots"]["area"] == "downtown core" and "kind" in stages[3]["action"]
     done = events[-1]
     assert done["reply"] and done["debug"]["turn_idx"] == 0 and "places" in done and "search" in done
