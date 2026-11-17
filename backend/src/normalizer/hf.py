@@ -46,6 +46,8 @@ def normalize(text: str) -> str:
         return text
 
     protected, mapping = protect_entities(text)
+    if protected is None:  # the text already holds a placeholder-shaped word ("Place1")
+        return text
 
     tokenizer, model = _load()
     inputs = tokenizer(

@@ -149,8 +149,9 @@ and each adapter the first time its component runs. `MAKAN_BASE_LLM` defaults to
 [`makan-where-cs425/makan-qwen-track`](https://huggingface.co/makan-where-cs425/makan-qwen-track) and
 [`makan-where-cs425/makan-qwen-reply`](https://huggingface.co/makan-where-cs425/makan-qwen-reply).
 The normalizer defaults to
-[`makan-where-cs425/makan-flan-normalizer`](https://huggingface.co/makan-where-cs425/makan-flan-normalizer)
-(Flan-T5-base, ~1 GB, public), and the style classifier to
+[`makan-where-cs425/makan-flan-normalizer-masked`](https://huggingface.co/makan-where-cs425/makan-flan-normalizer-masked)
+(Flan-T5-base, ~1 GB, public; trained with places, dishes and dietary words masked as `Place1`,
+`Food1`, `Diet1`, as the pipeline masks them: `training/build_normalizer_data.py`), and the style classifier to
 [`makan-where-cs425/makan-singbert-style-classifier`](https://huggingface.co/makan-where-cs425/makan-singbert-style-classifier)
 (SingBERT, ~440 MB, public; labels `English` / `Singlish`). The Qwen repos are private, so you need `HF_TOKEN`: a read token from a member of the
 `makan-where-cs425` organisation. Install the model packages with

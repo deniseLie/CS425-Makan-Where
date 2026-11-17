@@ -54,7 +54,7 @@ def test_tracker_and_generator_have_their_own_adapters(monkeypatch):
 
 def test_normalizer_defaults_to_the_team_model(monkeypatch):
     monkeypatch.delenv("MAKAN_NORMALIZER_MODEL", raising=False)
-    assert config.model_id("normalizer") == "makan-where-cs425/makan-flan-normalizer"
+    assert config.model_id("normalizer") == "makan-where-cs425/makan-flan-normalizer-masked"
 
 
 def test_style_defaults_to_the_team_model(monkeypatch):

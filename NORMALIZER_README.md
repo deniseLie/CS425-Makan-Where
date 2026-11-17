@@ -8,8 +8,22 @@ standard English while preserving the original meaning and user intent.
 The model is based on Google's FLAN-T5-base and is fine-tuned for
 Singlish-to-English text normalization.
 
-Hugging Face model:
-makan-where-cs425/makan-flan-normalizer
+Hugging Face model (served by the backend):
+makan-where-cs425/makan-flan-normalizer-masked
+
+It replaces makan-where-cs425/makan-flan-normalizer, the cleaned-data model below. The masked model
+is trained on the same cleaned SEAT split plus 1,000 synthetic restaurant requests, with places,
+dishes, cuisines and dietary words replaced by typed placeholders (`in tampines got halal food` ->
+`in Place1 got Diet1 food`), which is how the pipeline sends them at run time
+(backend/src/normalizer/entities.py). Data: `python training/build_normalizer_data.py`; training:
+`training/normalizer_masked_kaggle.ipynb`.
+
+| Model (same pipeline, typed placeholders) | SEAT test BLEU / chrF | Gold BLEU / chrF | Gold returned unchanged |
+|---|---:|---:|---:|
+| makan-flan-normalizer | 54.5 / 68.9 | 12.5 / 44.7 | 46% |
+| makan-flan-normalizer-masked | 53.8 / 68.1 | 22.0 / 54.9 | 0% |
+
+(`python eval/eval_normalizer.py`, 17 Nov 2026.)
 
 ## Dataset
 
